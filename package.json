@@ -1,0 +1,33 @@
+{
+  "name": "playwrighttesting",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "run:both": "npx playwright test tests/LoginTesting.spec.js --project=SIT-TEST --project=SIT-TEST-EDGE",
+    "report:latest": "powershell -File generate-allure.ps1",
+    "run:both:report": "powershell -NoProfile -Command \"npm run run:both; npm run report:latest\"",
+    "run:trip": "npx playwright test tests/Login.spec.js -g \"validate makemytrip\" --project=SIT-TRIP",
+    "run:trip:report": "powershell -NoProfile -Command \"npm run run:trip; npm run report:latest\"",
+    "run:api": "npx playwright test tests/api.spec.js -g \"GET API - Fetch user details\" --project=API-TEST",
+    "run:api:report": "powershell -NoProfile -Command \"npm run run:api; npm run report:latest\"",
+    "run:apiTest": "npx playwright test tests/apiTest.spec.js -g \"API returns expected shape\" --project=API-TEST",
+    "run:apiTest:report": "powershell -NoProfile -Command \"npm run run:apiTest; npm run report:latest\"",
+    "run:apiTestPost": "npx playwright test tests/apiTest.spec.js -g \"API returns POST\" --project=API-TEST",
+    "run:apiTestPost:report": "powershell -NoProfile -Command \"npm run run:apiTestPost; npm run report:latest\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^25.0.9",
+    "allure-commandline": "^2.36.0",
+    "allure-playwright": "^3.4.5"
+  },
+  "dependencies": {
+    "glob": "^13.0.2",
+    "pdfkit": "^0.17.2",
+    "xlsx": "^0.18.5"
+  }
+}
