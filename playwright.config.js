@@ -30,7 +30,7 @@ console.log('📁 Allure results folder:', process.env.ALLURE_RESULTS_DIR);
  * @see https://playwright.dev/docs/test-configuration
  */
 export default defineConfig({
-  testDir: './tests',
+  testDir: './Tests',
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -52,7 +52,7 @@ reporter: [
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    headless: false,
+    headless: process.env.CI ? true : false,
     ignoreHTTPSErrors: true,
     screenshot: 'on',
     actionTimeout: 10_000,       // optional default for actions

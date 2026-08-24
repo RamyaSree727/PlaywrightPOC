@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AllureReporter, { allure } from "allure-playwright";
-import { LoginPage } from '../Pages/LoginPage';
+import { LoginPage } from '../../Pages/LoginPage';
 let context;
 let page;
 
