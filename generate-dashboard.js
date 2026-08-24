@@ -3,7 +3,6 @@ const path = require('path');
 
 const RESULTS_FILE = path.join(__dirname, 'results.json');
 const HISTORY_FILE = path.join(__dirname, 'dashboard-history.json');
-const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
 const INDEX_HTML = path.join(__dirname, 'index.html');
 
 // 1. Read existing history or initialize empty history
@@ -19,6 +18,7 @@ if (fs.existsSync(HISTORY_FILE)) {
 // 2. Parse current test execution from results.json (if available)
 let currentRunOrgs = {};
 let totalRunDurationMs = 0;
+let failedTestCases = [];
 
 if (fs.existsSync(RESULTS_FILE)) {
   try {
@@ -52,9 +52,6 @@ if (fs.existsSync(RESULTS_FILE)) {
           const tests = spec.tests || [];
           tests.forEach(test => {
             const results = test.results || [];
-            let isPassed = false;
-            let isFailed = false;
-            let isSkipped = false;
             let duration = 0;
 
             results.forEach(r => {
@@ -72,6 +69,11 @@ if (fs.existsSync(RESULTS_FILE)) {
                 org.skipped += 1;
               } else {
                 org.failed += 1;
+                failedTestCases.push({
+                  org: orgName,
+                  title: spec.title,
+                  file: filePath
+                });
               }
             }
 
@@ -100,6 +102,11 @@ if (Object.keys(currentRunOrgs).length === 0) {
     'Org1': { name: 'Org1', total: 10, passed: 9, failed: 1, flaky: 1, skipped: 0, durationMs: 45000 },
     'Org2': { name: 'Org2', total: 10, passed: 10, failed: 0, flaky: 0, skipped: 0, durationMs: 38000 }
   };
+  failedTestCases.push({
+    org: 'Org1',
+    title: 'Functional validation @p0 @smoke',
+    file: 'Tests/Org1/Login.spec.js'
+  });
 }
 
 // 3. Append current run to history
@@ -547,6 +554,111 @@ new Chart(document.getElementById('cWeekly'),{type:'line',
 </body>
 </html>`;
 
-fs.writeFileSync(OUTPUT_HTML, htmlContent, 'utf8');
 fs.writeFileSync(INDEX_HTML, htmlContent, 'utf8');
-console.log('✅ Successfully generated dashboard.html and index.html!');
+console.log('✅ Successfully generated index.html!');
+
+// 6. Generate email-body.html for email report
+const triggeredBy = process.env.GITHUB_EVENT_NAME === 'schedule'
+  ? 'Scheduled Cron'
+  : (process.env.GITHUB_ACTOR || 'Manual/Local');
+const branchName = process.env.GITHUB_REF_NAME || 'main';
+
+const emailTableRows = Object.values(currentRunOrgs).map(org => {
+  const passPct = org.total > 0 ? ((org.passed / org.total) * 100).toFixed(1) : '0.0';
+  const durSec = Math.round(org.durationMs / 1000);
+  const durStr = durSec >= 60 ? `${Math.floor(durSec / 60)}m ${durSec % 60}s` : `${durSec}s`;
+  const passBadgeStyle = parseFloat(passPct) >= 90 
+    ? 'color: #0a7c55; background-color: #e8f8f2;' 
+    : parseFloat(passPct) >= 75 
+      ? 'color: #b05c00; background-color: #fff4e0;' 
+      : 'color: #b71c1c; background-color: #fdecea;';
+
+  return `<tr>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; font-weight: bold; color: #1a3a6b;">${org.name}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; font-weight: bold;">${org.total}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #28a745; font-weight: bold;">${org.passed}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #dc3545; font-weight: bold;">${org.failed}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center;"><span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; ${passBadgeStyle}">${passPct}%</span></td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">${triggeredBy}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">${currentDateStr}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">${branchName}</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">${durStr}</td>
+  </tr>`;
+}).join('\n');
+
+let failedCasesHtml = '';
+if (failedTestCases.length > 0) {
+  failedCasesHtml = `
+  <div style="margin-top: 24px; padding: 16px; background-color: #fdf2f2; border: 1px solid #f8d7da; border-radius: 8px;">
+    <h3 style="margin: 0 0 10px 0; color: #dc3545; font-size: 14px; font-weight: bold;">❌ Failed Test Cases (${failedTestCases.length})</h3>
+    <ul style="margin: 0; padding-left: 20px; color: #dc3545; font-size: 12px; font-weight: bold;">
+      ${failedTestCases.map(tc => `<li style="margin-bottom: 6px; color: #dc3545;">[${tc.org}] ${tc.title} <span style="font-weight: normal; color: #721c24;">(${tc.file})</span></li>`).join('\n')}
+    </ul>
+  </div>`;
+} else {
+  failedCasesHtml = `
+  <div style="margin-top: 20px; padding: 12px; background-color: #e8f8f2; border: 1px solid #c3e6cb; border-radius: 8px; color: #0a7c55; font-size: 12px; font-weight: bold;">
+    ✅ All test cases passed successfully! No failures detected.
+  </div>`;
+}
+
+const emailBodyHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1a1a2e; background-color: #f4f6fb; padding: 20px; margin: 0; }
+    .container { max-width: 900px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 10px; border: 1px solid #e8ecf4; }
+    .header { background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 100%); color: #ffffff; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
+    .header h2 { margin: 0; font-size: 20px; font-weight: bold; }
+    .header p { margin: 4px 0 0; font-size: 12px; color: #93b4de; }
+    .summary-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+    .summary-table th { background-color: #1a3a6b; color: #ffffff; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer { margin-top: 24px; font-size: 11px; color: #7a8ba8; border-top: 1px solid #e8ecf4; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Orgwise Regression Execution Summary</h2>
+      <p>Automated Playwright Regression Test Report &mdash; Org1 &amp; Org2</p>
+    </div>
+
+    <p style="font-size: 13px;">Hello Team,</p>
+    <p style="font-size: 13px;">The regression test execution for <strong>Org1</strong> and <strong>Org2</strong> has completed. Below is the detailed execution breakdown:</p>
+
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Org Name</th>
+          <th style="text-align: center;">Total Test Cases</th>
+          <th style="text-align: center;">Passed</th>
+          <th style="text-align: center;">Failed</th>
+          <th style="text-align: center;">Percentage</th>
+          <th>Triggered By</th>
+          <th>Date Ran</th>
+          <th>Branch Name</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${emailTableRows}
+      </tbody>
+    </table>
+
+    ${failedCasesHtml}
+
+    <p style="margin-top: 22px; font-size: 12px; color: #4a5568;">
+      Attached to this email are the interactive <code>index.html</code> dashboard and the Playwright execution report (<code>playwright-test-report.html</code>).
+    </p>
+
+    <div class="footer">
+      <p>Regards,<br/><strong>Automation Quality Assurance Team</strong></p>
+    </div>
+  </div>
+</body>
+</html>`;
+
+const EMAIL_BODY_FILE = path.join(__dirname, 'email-body.html');
+fs.writeFileSync(EMAIL_BODY_FILE, emailBodyHtml, 'utf8');
+console.log('✅ Successfully generated email-body.html!');

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8"/>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #1a1a2e; background-color: #f4f6fb; padding: 20px; margin: 0; }
+    .container { max-width: 900px; margin: 0 auto; background: #ffffff; padding: 24px; border-radius: 10px; border: 1px solid #e8ecf4; }
+    .header { background: linear-gradient(135deg, #0d1b3e 0%, #1a3a6b 100%); color: #ffffff; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px; }
+    .header h2 { margin: 0; font-size: 20px; font-weight: bold; }
+    .header p { margin: 4px 0 0; font-size: 12px; color: #93b4de; }
+    .summary-table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 12px; }
+    .summary-table th { background-color: #1a3a6b; color: #ffffff; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .footer { margin-top: 24px; font-size: 11px; color: #7a8ba8; border-top: 1px solid #e8ecf4; padding-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2>Orgwise Regression Execution Summary</h2>
+      <p>Automated Playwright Regression Test Report &mdash; Org1 &amp; Org2</p>
+    </div>
+
+    <p style="font-size: 13px;">Hello Team,</p>
+    <p style="font-size: 13px;">The regression test execution for <strong>Org1</strong> and <strong>Org2</strong> has completed. Below is the detailed execution breakdown:</p>
+
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Org Name</th>
+          <th style="text-align: center;">Total Test Cases</th>
+          <th style="text-align: center;">Passed</th>
+          <th style="text-align: center;">Failed</th>
+          <th style="text-align: center;">Percentage</th>
+          <th>Triggered By</th>
+          <th>Date Ran</th>
+          <th>Branch Name</th>
+          <th>Duration</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; font-weight: bold; color: #1a3a6b;">Org1</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; font-weight: bold;">10</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #28a745; font-weight: bold;">9</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #dc3545; font-weight: bold;">1</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center;"><span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; color: #0a7c55; background-color: #e8f8f2;">90.0%</span></td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">Manual/Local</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">8/24/2026</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">main</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">45s</td>
+  </tr>
+<tr>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; font-weight: bold; color: #1a3a6b;">Org2</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; font-weight: bold;">10</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #28a745; font-weight: bold;">10</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center; color: #dc3545; font-weight: bold;">0</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; text-align: center;"><span style="padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px; color: #0a7c55; background-color: #e8f8f2;">100.0%</span></td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">Manual/Local</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">8/24/2026</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">main</td>
+    <td style="padding: 10px 12px; border-bottom: 1px solid #e8ecf4; color: #555;">38s</td>
+  </tr>
+      </tbody>
+    </table>
+
+    
+  <div style="margin-top: 24px; padding: 16px; background-color: #fdf2f2; border: 1px solid #f8d7da; border-radius: 8px;">
+    <h3 style="margin: 0 0 10px 0; color: #dc3545; font-size: 14px; font-weight: bold;">❌ Failed Test Cases (1)</h3>
+    <ul style="margin: 0; padding-left: 20px; color: #dc3545; font-size: 12px; font-weight: bold;">
+      <li style="margin-bottom: 6px; color: #dc3545;">[Org1] Functional validation @p0 @smoke <span style="font-weight: normal; color: #721c24;">(Tests/Org1/Login.spec.js)</span></li>
+    </ul>
+  </div>
+
+    <p style="margin-top: 22px; font-size: 12px; color: #4a5568;">
+      Attached to this email are the interactive <code>dashboard.html</code> and the Playwright execution report (<code>playwright-test-report.html</code>).
+    </p>
+
+    <div class="footer">
+      <p>Regards,<br/><strong>Automation Quality Assurance Team</strong></p>
+    </div>
+  </div>
+</body>
+</html>
