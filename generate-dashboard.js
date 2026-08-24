@@ -4,6 +4,7 @@ const path = require('path');
 const RESULTS_FILE = path.join(__dirname, 'results.json');
 const HISTORY_FILE = path.join(__dirname, 'dashboard-history.json');
 const OUTPUT_HTML = path.join(__dirname, 'dashboard.html');
+const INDEX_HTML = path.join(__dirname, 'index.html');
 
 // 1. Read existing history or initialize empty history
 let history = [];
@@ -547,4 +548,5 @@ new Chart(document.getElementById('cWeekly'),{type:'line',
 </html>`;
 
 fs.writeFileSync(OUTPUT_HTML, htmlContent, 'utf8');
-console.log('✅ Successfully generated dashboard.html!');
+fs.writeFileSync(INDEX_HTML, htmlContent, 'utf8');
+console.log('✅ Successfully generated dashboard.html and index.html!');
