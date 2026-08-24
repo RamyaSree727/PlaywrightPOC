@@ -42,6 +42,9 @@ jobs:
         if: always()
         run: |
           node generate-dashboard.js
+          if [ -f "playwright-report/index.html" ]; then
+            cp playwright-report/index.html playwright-test-report.html
+          fi
 
       - name: Commit Updated Dashboard Data (for GitHub Pages tracking)
         if: always()
@@ -70,68 +73,10 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Orgwise Regression Dashboard & Test Results [Org1 & Org2] - Outcome: ${{ steps.run_tests.outcome }}"
+          subject: "Orgwise Regression Summary & Test Results [Org1 & Org2] - Outcome: ${{ steps.run_tests.outcome }}"
           to: ${{ github.event.inputs.recipient_email || 'nagasree727@gmail.com' }}
           from: "Playwright Test Automation <${{ secrets.SMTP_USERNAME }}>"
           secure: true
           priority: normal
-          html_body: |
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
-                .header { background-color: #0056b3; color: white; padding: 15px; text-align: center; border-radius: 5px 5px 0 0; }
-                .status-pass { color: #28a745; font-weight: bold; }
-                .status-fail { color: #dc3545; font-weight: bold; }
-                .table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-                .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                .table th { background-color: #f2f2f2; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="header">
-                  <h2>Orgwise Regression Execution Dashboard</h2>
-                </div>
-                <p>Hello Team,</p>
-                <p>The regression execution for <strong>Org1</strong> and <strong>Org2</strong> test suites has completed.</p>
-                
-                <table class="table">
-                  <tr>
-                    <th>Execution Status</th>
-                    <td>
-                      <span class="${{ steps.run_tests.outcome == 'success' && 'status-pass' || 'status-fail' }}">
-                        ${{ steps.run_tests.outcome == 'success' && 'PASSED' || 'FAILED' }}
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>Folders Executed</th>
-                    <td>Tests/Org1, Tests/Org2</td>
-                  </tr>
-                  <tr>
-                    <th>Trigger Source</th>
-                    <td>${{ github.event_name }}</td>
-                  </tr>
-                  <tr>
-                    <th>Repository</th>
-                    <td>${{ github.repository }}</td>
-                  </tr>
-                  <tr>
-                    <th>Branch</th>
-                    <td>${{ github.ref_name }}</td>
-                  </tr>
-                  <tr>
-                    <th>Workflow Details</th>
-                    <td><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View GitHub Actions Run</a></td>
-                  </tr>
-                </table>
-
-                <p>Attached to this email is the interactive <code>dashboard.html</code> containing the full organization dashboard &amp; execution metrics.</p>
-                <p>Regards,<br/>Automation Quality Assurance Team</p>
-              </div>
-            </body>
-            </html>
-          attachments: dashboard.html
+          html_body: file://email-body.html
+          attachments: dashboard.html,playwright-test-report.html
