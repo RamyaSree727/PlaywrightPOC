@@ -36,17 +36,33 @@ jobs:
         id: run_tests
         continue-on-error: true
         run: |
-          npx playwright test Tests/Org1 Tests/Org2 --reporter=html,line
+          PLAYWRIGHT_JSON_OUTPUT_NAME=results.json npx playwright test Tests/Org1 Tests/Org2 --reporter=json,html,line
 
-      - name: Upload Test Report Artifact
+      - name: Generate Orgwise Dashboard HTML
+        if: always()
+        run: |
+          node generate-dashboard.js
+
+      - name: Commit Updated Dashboard Data (for GitHub Pages tracking)
+        if: always()
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add dashboard-history.json dashboard.html
+          git commit -m "auto: update regression dashboard data [skip ci]" || echo "No changes to commit"
+          git push || echo "Push failed or no remote changes"
+
+      - name: Upload Test Report & Dashboard Artifact
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: combined-org1-org2-report
-          path: playwright-report/
+          name: combined-org1-org2-dashboard
+          path: |
+            dashboard.html
+            playwright-report/
           retention-days: 30
 
-      - name: Send Combined Email Notification
+      - name: Send Combined Email Notification with Dashboard
         uses: dawidd6/action-send-mail@v4
         if: always()
         with:
@@ -54,7 +70,7 @@ jobs:
           server_port: ${{ secrets.SMTP_PORT }}
           username: ${{ secrets.SMTP_USERNAME }}
           password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "Regression Test Results [Org1 & Org2] - Outcome: ${{ steps.run_tests.outcome }}"
+          subject: "Orgwise Regression Dashboard & Test Results [Org1 & Org2] - Outcome: ${{ steps.run_tests.outcome }}"
           to: ${{ github.event.inputs.recipient_email || 'nagasree727@gmail.com' }}
           from: "Playwright Test Automation <${{ secrets.SMTP_USERNAME }}>"
           secure: true
@@ -77,10 +93,10 @@ jobs:
             <body>
               <div class="container">
                 <div class="header">
-                  <h2>Combined Regression Execution Report</h2>
+                  <h2>Orgwise Regression Execution Dashboard</h2>
                 </div>
                 <p>Hello Team,</p>
-                <p>The scheduled regression testing for <strong>Org1</strong> and <strong>Org2</strong> test folders has completed.</p>
+                <p>The regression execution for <strong>Org1</strong> and <strong>Org2</strong> test suites has completed.</p>
                 
                 <table class="table">
                   <tr>
@@ -108,14 +124,14 @@ jobs:
                     <td>${{ github.ref_name }}</td>
                   </tr>
                   <tr>
-                    <th>Run Details</th>
-                    <td><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Workflow Run</a></td>
+                    <th>Workflow Details</th>
+                    <td><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View GitHub Actions Run</a></td>
                   </tr>
                 </table>
 
-                <p>Attached to this email is the HTML report (<code>index.html</code>).</p>
+                <p>Attached to this email is the interactive <code>dashboard.html</code> containing the full organization dashboard &amp; execution metrics.</p>
                 <p>Regards,<br/>Automation Quality Assurance Team</p>
               </div>
             </body>
             </html>
-          attachments: playwright-report/index.html
+          attachments: dashboard.html
