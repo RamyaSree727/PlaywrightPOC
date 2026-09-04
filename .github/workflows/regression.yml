@@ -6,6 +6,15 @@ on:
     - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
+      target_org:
+        description: 'Select Target Organization'
+        required: true
+        default: 'All'
+        type: choice
+        options:
+          - All
+          - Org1
+          - Org2
       recipient_email:
         description: 'Recipient Email ID'
         required: false
@@ -34,11 +43,20 @@ jobs:
       - name: Install Playwright Browsers with dependencies
         run: npx playwright install --with-deps
 
-      - name: Run Org1 and Org2 Regression Tests
+      - name: Run Regression Tests
         id: run_tests
         continue-on-error: true
         run: |
-          PLAYWRIGHT_JSON_OUTPUT_NAME=results.json npx playwright test Tests/Org1 Tests/Org2 --reporter=json,html,line
+          TARGET="${{ github.event.inputs.target_org }}"
+          if [ "$TARGET" = "Org1" ]; then
+            TEST_PATH="Tests/Org1"
+          elif [ "$TARGET" = "Org2" ]; then
+            TEST_PATH="Tests/Org2"
+          else
+            TEST_PATH="Tests/Org1 Tests/Org2"
+          fi
+          echo "Executing tests for: $TEST_PATH"
+          PLAYWRIGHT_JSON_OUTPUT_NAME=results.json npx playwright test $TEST_PATH --reporter=json,html,line
 
       - name: Generate Orgwise Dashboard HTML
         if: always()
