@@ -60,6 +60,8 @@ jobs:
 
       - name: Generate Orgwise Dashboard HTML
         if: always()
+        env:
+          TARGET_ORG: ${{ github.event.inputs.target_org }}
         run: |
           node generate-dashboard.js
           if [ -f "playwright-report/index.html" ]; then
@@ -72,7 +74,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           touch .nojekyll
-          git add -f dashboard-history.json index.html playwright-test-report.html playwright-report/ .nojekyll
+          git add -f dashboard-history.json index.html playwright-test-report.html playwright-report/ reports/ .nojekyll
           git commit -m "auto: update regression dashboard data [skip ci]" || echo "No changes to commit"
           git push || echo "Push failed or no remote changes"
 
@@ -85,6 +87,7 @@ jobs:
             index.html
             dashboard-history.json
             playwright-report/
+            reports/
             playwright-test-report.html
           retention-days: 30
 

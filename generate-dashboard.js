@@ -19,11 +19,16 @@ if (fs.existsSync(HISTORY_FILE)) {
 let currentRunOrgs = {};
 let totalRunDurationMs = 0;
 let failedTestCases = [];
+let testRunStartTime = null;
 
 if (fs.existsSync(RESULTS_FILE)) {
   try {
     const rawData = fs.readFileSync(RESULTS_FILE, 'utf8');
     const jsonResult = JSON.parse(rawData);
+
+    if (jsonResult.stats && jsonResult.stats.startTime) {
+      testRunStartTime = new Date(jsonResult.stats.startTime);
+    }
 
     function processSuite(suite) {
       if (suite.specs && suite.specs.length > 0) {
@@ -109,11 +114,40 @@ if (Object.keys(currentRunOrgs).length === 0) {
   });
 }
 
-// 3. Append current run to history
-const currentDateStr = new Date().toLocaleDateString('en-US');
+// Helper function to recursively copy directory contents
+function copyDirSync(src, dest) {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  const entries = fs.readdirSync(src, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyDirSync(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+}
+
+// Save org-specific Playwright HTML reports under reports/<orgName>/
+const PLAYWRIGHT_REPORT_DIR = path.join(__dirname, 'playwright-report');
+const REPORTS_DIR = path.join(__dirname, 'reports');
+
+if (fs.existsSync(PLAYWRIGHT_REPORT_DIR)) {
+  Object.keys(currentRunOrgs).forEach(orgName => {
+    const orgReportDir = path.join(REPORTS_DIR, orgName);
+    copyDirSync(PLAYWRIGHT_REPORT_DIR, orgReportDir);
+    currentRunOrgs[orgName].reportPath = 'reports/' + orgName + '/index.html';
+  });
+}
+
+// 3. Append current run to history using dynamic execution timestamp
+const runDate = testRunStartTime || new Date();
+const currentDateStr = runDate.toLocaleDateString('en-US');
 const currentRun = {
   date: currentDateStr,
-  timestamp: new Date().toISOString(),
+  timestamp: runDate.toISOString(),
   orgs: currentRunOrgs
 };
 
@@ -123,6 +157,16 @@ history.push(currentRun);
 if (history.length > 20) {
   history = history.slice(-20);
 }
+
+// Normalize dates in history based on timestamp to ensure dynamic date rendering
+history.forEach(item => {
+  if (item.timestamp) {
+    const d = new Date(item.timestamp);
+    if (!isNaN(d.getTime())) {
+      item.date = d.toLocaleDateString('en-US');
+    }
+  }
+});
 
 fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
 
@@ -181,7 +225,7 @@ history.forEach((runItem, runIdx) => {
     const weekTd = orgIdx === 0
       ? `<td rowspan="${rowspan}" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;">
           <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" class="cb-week" data-week="${weekNum}" onclick="toggleWeekCbs(this, ${weekNum})" title="Select all orgs in Week ${weekNum}"/>
+            <input type="checkbox" class="cb-week" data-run-idx="${runIdx}" onclick="toggleRunCbs(this, ${runIdx})" title="Select all orgs in this run block"/>
             <strong>${weekLabel}</strong>
           </div>
           <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 ${runItem.date}</span>
@@ -190,13 +234,19 @@ history.forEach((runItem, runIdx) => {
 
     const borderStyle = orgIdx === rowspan - 1 ? 'border-bottom:2px solid #e8ecf4;' : '';
 
+    const reportLink = org.reportPath || (fs.existsSync(path.join(__dirname, 'reports', org.name, 'index.html'))
+      ? 'reports/' + org.name + '/index.html'
+      : 'playwright-report/index.html');
+
     // Summary Table Row
     summaryRows.push(`<tr style="${borderStyle}">
-      <td style="text-align:center;width:36px;vertical-align:middle;">
-        <input type="checkbox" class="row-cb" data-run-idx="${runIdx}" data-org="${org.name}" data-week="${weekNum}" onclick="updateSelectCount()"/>
-      </td>
       ${weekTd}
-      <td><a href="playwright-report/index.html" target="_blank" class="org-link">${org.name} ↗</a></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" class="row-cb" data-run-idx="${runIdx}" data-org="${org.name}" data-week="${weekNum}" onclick="updateSelectCount()"/>
+          <a href="${reportLink}" target="_blank" class="org-link">${org.name} ↗</a>
+        </div>
+      </td>
       <td class="n">${org.total}</td>
       <td class="n" style="color:#0a7c55;font-weight:700">${org.passed}</td>
       <td class="n" style="color:#b71c1c;font-weight:700">${org.failed}</td>
@@ -213,7 +263,7 @@ history.forEach((runItem, runIdx) => {
   <div class="rating-card">
     <div class="rc-header">
       <div>
-        <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">${org.name} (${weekLabel}) ↗</a></div>
+        <div class="rc-title"><a href="${reportLink}" target="_blank" class="org-link">${org.name} (${weekLabel}) ↗</a></div>
         <div class="rc-domain">${org.total} tests &middot; ${runItem.date}</div>
       </div>
       <div class="rc-score-badge ${scoreClass}">${scoreVal}<span style="font-size:11px;font-weight:600">/10</span></div>
@@ -314,6 +364,18 @@ for (let w = 1; w <= weekCount; w++) {
 }
 
 const genDateStr = new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+
+// Determine dynamic dashboard header title based on triggered Orgs in latest run
+const currentOrgsList = Object.keys(currentRunOrgs);
+let dashboardHeading = 'Orgwise Regression Dashboard';
+
+if (process.env.TARGET_ORG && process.env.TARGET_ORG !== 'All') {
+  dashboardHeading = `${process.env.TARGET_ORG} Regression Dashboard`;
+} else if (currentOrgsList.length === 1) {
+  dashboardHeading = `${currentOrgsList[0]} Regression Dashboard`;
+} else if (currentOrgsList.length > 1) {
+  dashboardHeading = 'All Orgs Regression Dashboard';
+}
 
 // 5. Build Complete HTML Page
 const htmlContent = `<!DOCTYPE html>
@@ -428,7 +490,7 @@ const htmlContent = `<!DOCTYPE html>
 <div class="page-header">
   <div class="header-top">
     <div class="title-block">
-      <h1>Orgwise Regression Dashboard</h1>
+      <h1>${dashboardHeading}</h1>
       <div class="sub">Automated Playwright regression &mdash; ${weekCount} week(s), ${totalRunCount} run(s) &mdash; Generated ${genDateStr}</div>
     </div>
     <div class="run-badge">
@@ -466,15 +528,15 @@ const htmlContent = `<!DOCTYPE html>
 <div class="sum-wrap">
   <table id="org-summary-table">
     <thead><tr>
-      <th style="width:36px;text-align:center;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)" title="Select / Deselect All"/></th>
-      <th>Week</th><th>Organization</th><th class="n">Total</th><th class="n">Passed</th><th class="n">Failed</th>
+      <th style="text-align:center;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)" title="Select / Deselect All"/> Week</th>
+      <th>Organization</th><th class="n">Total</th><th class="n">Passed</th><th class="n">Failed</th>
       <th class="n">Flaky</th><th class="n">Skipped</th><th class="n">Pass Rate</th><th class="n">Run Date</th><th class="n">Duration</th>
     </tr></thead>
     <tbody>
       ${summaryRows.join('\n')}
     </tbody>
     <tfoot><tr>
-      <td colspan="3">TOTAL (${weekCount} weeks, ${totalRunCount} runs)</td>
+      <td colspan="2">TOTAL (${weekCount} weeks, ${totalRunCount} runs)</td>
       <td class="n">${totalTestsAll}</td>
       <td class="n" style="color:#0a7c55;font-weight:700">${totalPassedAll}</td>
       <td class="n" style="color:#b71c1c;font-weight:700">${totalFailedAll}</td>
@@ -549,9 +611,9 @@ function toggleSelectAll(masterCb) {
   updateSelectCount();
 }
 
-function toggleWeekCbs(weekCb, weekNum) {
-  const rowCbs = document.querySelectorAll(`.row-cb[data-week="${weekNum}"]`);
-  rowCbs.forEach(cb => cb.checked = weekCb.checked);
+function toggleRunCbs(runCb, runIdx) {
+  const rowCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+  rowCbs.forEach(cb => cb.checked = runCb.checked);
   updateSelectCount();
 }
 
@@ -583,7 +645,7 @@ async function deleteSelectedData() {
     });
   });
 
-  if (!confirm(`Are you sure you want to delete ${items.length} selected item(s)?`)) {
+  if (!confirm('Are you sure you want to delete ' + items.length + ' selected item(s)?')) {
     return;
   }
 
@@ -677,6 +739,9 @@ const triggeredBy = process.env.GITHUB_EVENT_NAME === 'schedule'
   ? 'Scheduled Cron'
   : (process.env.GITHUB_ACTOR || 'Manual/Local');
 const branchName = process.env.GITHUB_REF_NAME || 'main';
+const emailSubjectHeading = process.env.TARGET_ORG && process.env.TARGET_ORG !== 'All' 
+  ? `${process.env.TARGET_ORG} Regression Execution Summary`
+  : 'All Orgs Regression Execution Summary';
 
 const emailTableRows = Object.values(currentRunOrgs).map(org => {
   const passPct = org.total > 0 ? ((org.passed / org.total) * 100).toFixed(1) : '0.0';
@@ -735,8 +800,8 @@ const emailBodyHtml = `<!DOCTYPE html>
 <body>
   <div class="container">
     <div class="header">
-      <h2>Orgwise Regression Execution Summary</h2>
-      <p>Automated Playwright Regression Test Report &mdash; Org1 &amp; Org2</p>
+      <h2>${emailSubjectHeading}</h2>
+      <p>Automated Playwright Regression Test Report</p>
     </div>
 
     <p style="font-size: 13px;">Hello Team,</p>
