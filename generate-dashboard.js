@@ -153,8 +153,10 @@ const totalRunCount = history.length;
 history.forEach((runItem, runIdx) => {
   const weekNum = Math.floor(runIdx / 5) + 1;
   const weekLabel = `Week ${weekNum}`;
+  const orgEntries = Object.values(runItem.orgs);
+  const rowspan = orgEntries.length;
 
-  Object.values(runItem.orgs).forEach(org => {
+  orgEntries.forEach((org, orgIdx) => {
     totalTestsAll += org.total;
     totalPassedAll += org.passed;
     totalFailedAll += org.failed;
@@ -168,7 +170,7 @@ history.forEach((runItem, runIdx) => {
     const scoreClass = scoreVal >= 9.0 ? 'score-a' : scoreVal >= 7.5 ? 'score-b' : 'score-c';
     const scoreColor = scoreVal >= 9.0 ? '#5bf5bc' : scoreVal >= 7.5 ? '#ffd166' : '#ff6b6b';
 
-    const fullLabel = `${weekLabel} — ${org.name}`;
+    const fullLabel = `${weekLabel} (${runItem.date}) — ${org.name}`;
     orgLabels.push(fullLabel);
     passedData.push(org.passed);
     failedData.push(org.failed);
@@ -176,9 +178,15 @@ history.forEach((runItem, runIdx) => {
     skipData.push(org.skipped);
     ratesData.push(parseFloat(passRate));
 
+    const weekTd = orgIdx === 0
+      ? `<td rowspan="${rowspan}" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;"><strong>${weekLabel}</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 ${runItem.date}</span></td>`
+      : '';
+
+    const borderStyle = orgIdx === rowspan - 1 ? 'border-bottom:2px solid #e8ecf4;' : '';
+
     // Summary Table Row
-    summaryRows.push(`<tr>
-      <td><strong>${weekLabel}</strong></td>
+    summaryRows.push(`<tr style="${borderStyle}">
+      ${weekTd}
       <td><a href="playwright-report/index.html" target="_blank" class="org-link">${org.name} ↗</a></td>
       <td class="n">${org.total}</td>
       <td class="n" style="color:#0a7c55;font-weight:700">${org.passed}</td>
@@ -251,15 +259,18 @@ const weeklyTableRows = [];
 
 for (let w = 1; w <= weekCount; w++) {
   const wLabel = `Week ${w}`;
-  weeklyLabels.push(wLabel);
 
   let wTotal = 0;
   let wPassed = 0;
   let wFailed = 0;
   let wFlaky = 0;
+  const wDates = [];
 
   history.forEach((runItem, rIdx) => {
     if (Math.floor(rIdx / 5) + 1 === w) {
+      if (runItem.date && !wDates.includes(runItem.date)) {
+        wDates.push(runItem.date);
+      }
       Object.values(runItem.orgs).forEach(o => {
         wTotal += o.total;
         wPassed += o.passed;
@@ -269,12 +280,19 @@ for (let w = 1; w <= weekCount; w++) {
     }
   });
 
+  const dateSubtext = wDates.length > 1 
+    ? `${wDates[0]} &ndash; ${wDates[wDates.length - 1]}`
+    : (wDates[0] || '');
+
+  const fullWLabel = dateSubtext ? `${wLabel} (${dateSubtext})` : wLabel;
+  weeklyLabels.push(fullWLabel);
+
   const wRate = wTotal > 0 ? ((wPassed / wTotal) * 100).toFixed(1) : 0;
   weeklyPassRates.push(parseFloat(wRate));
   weeklyTotals.push(wTotal);
 
   weeklyTableRows.push(`<tr>
-      <td><strong>${wLabel}</strong></td>
+      <td><strong>${wLabel}</strong>${dateSubtext ? `<br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 ${dateSubtext}</span>` : ''}</td>
       <td class="n">${wTotal}</td>
       <td class="n" style="color:#0a7c55;font-weight:700">${wPassed}</td>
       <td class="n" style="color:#b71c1c;font-weight:700">${wFailed}</td>
