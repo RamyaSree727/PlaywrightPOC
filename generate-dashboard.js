@@ -391,7 +391,12 @@ const htmlContent = `<!DOCTYPE html>
     .org-link:hover{text-decoration:underline}
   </style>
 </head>
-<body>
+<body style="padding-top:16px;">
+
+<div style="background:#eef6ff;border:1px solid #cce3ff;border-radius:8px;padding:10px 18px;margin-bottom:20px;font-size:12px;color:#1e5fa8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+  <div>💻 <strong>Local &amp; Offline Dashboard Access:</strong> Open this file directly or run <code>npm run dashboard</code> (or <code>node serve-dashboard.js</code>) to view locally with HTTP server.</div>
+  <div style="font-size:10px;font-weight:bold;background:#1e5fa8;color:#fff;padding:3px 10px;border-radius:4px;">Local &amp; GitHub Pages Ready</div>
+</div>
 
 <div class="page-header">
   <div class="header-top">
@@ -509,47 +514,55 @@ const WK_R = ${JSON.stringify(weeklyPassRates)};
 const WK_T = ${JSON.stringify(weeklyTotals)};
 
 const tot = PASSED.reduce((a,b)=>a+b,0)+FAILED.reduce((a,b)=>a+b,0)+FLAKY.reduce((a,b)=>a+b,0)+SKIP.reduce((a,b)=>a+b,0);
-Chart.defaults.font.family="'Segoe UI',Arial,sans-serif";
-Chart.defaults.color='#4a5568';
 
-new Chart(document.getElementById('cBar'),{type:'bar',
-  data:{labels:ORGS,datasets:[
-    {label:'Passed', data:PASSED,backgroundColor:'#06c98a',borderRadius:3},
-    {label:'Failed', data:FAILED,backgroundColor:'#e53935',borderRadius:3},
-    {label:'Flaky',  data:FLAKY, backgroundColor:'#f4a93a',borderRadius:3},
-    {label:'Skipped',data:SKIP,  backgroundColor:'#b0bec5',borderRadius:3},
-  ]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{position:'top',labels:{boxWidth:11,padding:12}}},
-    scales:{x:{stacked:true,ticks:{maxRotation:45}},y:{stacked:true}}},
-});
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family="'Segoe UI',Arial,sans-serif";
+  Chart.defaults.color='#4a5568';
 
-new Chart(document.getElementById('cPie'),{type:'doughnut',
-  data:{labels:['Passed','Failed','Flaky','Skipped'],
-    datasets:[{data:[PASSED.reduce((a,b)=>a+b,0),FAILED.reduce((a,b)=>a+b,0),FLAKY.reduce((a,b)=>a+b,0),SKIP.reduce((a,b)=>a+b,0)],
-      backgroundColor:['#06c98a','#e53935','#f4a93a','#b0bec5'],borderWidth:2,borderColor:'#fff'}]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{position:'right'},
-      tooltip:{callbacks:{label:c=>\` \${c.label}: \${c.raw} (\${tot?(c.raw/tot*100).toFixed(1):0}%)\`}}}},
-});
+  new Chart(document.getElementById('cBar'),{type:'bar',
+    data:{labels:ORGS,datasets:[
+      {label:'Passed', data:PASSED,backgroundColor:'#06c98a',borderRadius:3},
+      {label:'Failed', data:FAILED,backgroundColor:'#e53935',borderRadius:3},
+      {label:'Flaky',  data:FLAKY, backgroundColor:'#f4a93a',borderRadius:3},
+      {label:'Skipped',data:SKIP,  backgroundColor:'#b0bec5',borderRadius:3},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top',labels:{boxWidth:11,padding:12}}},
+      scales:{x:{stacked:true,ticks:{maxRotation:45}},y:{stacked:true}}},
+  });
 
-new Chart(document.getElementById('cRate'),{type:'bar',
-  data:{labels:ORGS,datasets:[{label:'Pass %',data:RATES,borderRadius:4,
-    backgroundColor:RATES.map(r=>r>=90?'#06c98a':r>=75?'#f4a93a':'#e53935')}]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>\` \${c.raw}%\`}}},
-    scales:{x:{ticks:{maxRotation:45}},y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}},
-});
+  new Chart(document.getElementById('cPie'),{type:'doughnut',
+    data:{labels:['Passed','Failed','Flaky','Skipped'],
+      datasets:[{data:[PASSED.reduce((a,b)=>a+b,0),FAILED.reduce((a,b)=>a+b,0),FLAKY.reduce((a,b)=>a+b,0),SKIP.reduce((a,b)=>a+b,0)],
+        backgroundColor:['#06c98a','#e53935','#f4a93a','#b0bec5'],borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'right'},
+        tooltip:{callbacks:{label:c=>\` \${c.label}: \${c.raw} (\${tot?(c.raw/tot*100).toFixed(1):0}%)\`}}}},
+  });
 
-new Chart(document.getElementById('cWeekly'),{type:'line',
-  data:{labels:WK_L,datasets:[
-    {label:'Pass Rate %',data:WK_R,yAxisID:'y',borderColor:'#1e5fa8',backgroundColor:'rgba(30,95,168,.12)',fill:true,tension:.4,pointRadius:6,pointBackgroundColor:'#1e5fa8'},
-    {label:'Total Tests',data:WK_T,yAxisID:'y1',borderColor:'#b0bec5',borderDash:[5,5],fill:false,tension:.4,pointRadius:4},
-  ]},
-  options:{responsive:true,maintainAspectRatio:false,
-    plugins:{legend:{position:'top'}},
-    scales:{y:{min:0,max:100,position:'left',ticks:{callback:v=>v+'%'}},y1:{min:0,position:'right',grid:{drawOnChartArea:false}}}},
-});
+  new Chart(document.getElementById('cRate'),{type:'bar',
+    data:{labels:ORGS,datasets:[{label:'Pass %',data:RATES,borderRadius:4,
+      backgroundColor:RATES.map(r=>r>=90?'#06c98a':r>=75?'#f4a93a':'#e53935')}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>\` \${c.raw}%\`}}},
+      scales:{x:{ticks:{maxRotation:45}},y:{min:0,max:100,ticks:{callback:v=>v+'%'}}}},
+  });
+
+  new Chart(document.getElementById('cWeekly'),{type:'line',
+    data:{labels:WK_L,datasets:[
+      {label:'Pass Rate %',data:WK_R,yAxisID:'y',borderColor:'#1e5fa8',backgroundColor:'rgba(30,95,168,.12)',fill:true,tension:.4,pointRadius:6,pointBackgroundColor:'#1e5fa8'},
+      {label:'Total Tests',data:WK_T,yAxisID:'y1',borderColor:'#b0bec5',borderDash:[5,5],fill:false,tension:.4,pointRadius:4},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'top'}},
+      scales:{y:{min:0,max:100,position:'left',ticks:{callback:v=>v+'%'}},y1:{min:0,position:'right',grid:{drawOnChartArea:false}}}},
+  });
+} else {
+  console.warn('Chart.js CDN library is not reachable offline. Tabular data remains fully active.');
+  document.querySelectorAll('.chart-wrap').forEach(el => {
+    el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#7a8ba8;font-size:12px;">📊 Offline mode: Tabular & metric data active above.</div>';
+  });
+}
 </script>
 </body>
 </html>`;

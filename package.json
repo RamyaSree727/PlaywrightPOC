@@ -14,7 +14,9 @@
     "run:apiTest:report": "powershell -NoProfile -Command \"npm run run:apiTest; npm run report:latest\"",
     "run:apiTestPost": "npx playwright test tests/apiTest.spec.js -g \"API returns POST\" --project=API-TEST",
     "run:apiTestPost:report": "powershell -NoProfile -Command \"npm run run:apiTestPost; npm run report:latest\"",
-    "generate-dashboard": "node generate-dashboard.js"
+    "generate-dashboard": "node generate-dashboard.js",
+    "dashboard": "node serve-dashboard.js",
+    "serve:dashboard": "node serve-dashboard.js"
   },
   "keywords": [],
   "author": "",

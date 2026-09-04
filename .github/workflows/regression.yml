@@ -15,6 +15,8 @@ jobs:
   regression-tests:
     name: Execute Org1 & Org2 Regression Suite
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -46,7 +48,7 @@ jobs:
             cp playwright-report/index.html playwright-test-report.html
           fi
 
-      - name: Commit Updated Dashboard Data (for GitHub Pages tracking)
+      - name: Commit Updated Dashboard Data (for GitHub Pages tracking & local access)
         if: always()
         run: |
           git config --global user.name "github-actions[bot]"
@@ -62,7 +64,9 @@ jobs:
           name: combined-org1-org2-dashboard
           path: |
             index.html
+            dashboard-history.json
             playwright-report/
+            playwright-test-report.html
           retention-days: 30
 
       - name: Send Combined Email Notification with Dashboard
