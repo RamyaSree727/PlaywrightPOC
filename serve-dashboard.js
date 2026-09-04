@@ -36,6 +36,71 @@ const server = http.createServer((req, res) => {
   }
 
   let reqUrl = decodeURIComponent(req.url.split('?')[0]);
+
+  // Handle API endpoint to delete selected history items
+  if (req.method === 'POST' && reqUrl === '/api/delete-data') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      try {
+        const { itemsToDelete } = JSON.parse(body);
+        const historyFile = path.join(ROOT_DIR, 'dashboard-history.json');
+
+        if (fs.existsSync(historyFile)) {
+          let history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+
+          // Group deletions by runIdx
+          const byRun = {};
+          itemsToDelete.forEach(item => {
+            if (!byRun[item.runIdx]) byRun[item.runIdx] = [];
+            byRun[item.runIdx].push(item.org);
+          });
+
+          // Process run indices in descending order to avoid index shifts
+          const runIndices = Object.keys(byRun).map(Number).sort((a, b) => b - a);
+
+          runIndices.forEach(rIdx => {
+            if (history[rIdx]) {
+              const orgsToDelete = byRun[rIdx];
+              orgsToDelete.forEach(orgName => {
+                if (history[rIdx].orgs) {
+                  delete history[rIdx].orgs[orgName];
+                }
+              });
+
+              // If no orgs left in this run, remove the run entry entirely
+              if (!history[rIdx].orgs || Object.keys(history[rIdx].orgs).length === 0) {
+                history.splice(rIdx, 1);
+              }
+            }
+          });
+
+          fs.writeFileSync(historyFile, JSON.stringify(history, null, 2), 'utf8');
+
+          // Regenerate index.html
+          exec('node generate-dashboard.js', (genErr) => {
+            if (genErr) {
+              console.error('Error regenerating dashboard:', genErr);
+              res.writeHead(500, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, message: genErr.message }));
+            } else {
+              console.log('✅ Data deleted from dashboard-history.json and regenerated index.html!');
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+            }
+          });
+        } else {
+          res.writeHead(404, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: 'History file not found' }));
+        }
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, message: err.message }));
+      }
+    });
+    return;
+  }
+
   if (reqUrl === '/') {
     reqUrl = '/index.html';
   }

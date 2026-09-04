@@ -179,13 +179,22 @@ history.forEach((runItem, runIdx) => {
     ratesData.push(parseFloat(passRate));
 
     const weekTd = orgIdx === 0
-      ? `<td rowspan="${rowspan}" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;"><strong>${weekLabel}</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 ${runItem.date}</span></td>`
+      ? `<td rowspan="${rowspan}" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" class="cb-week" data-week="${weekNum}" onclick="toggleWeekCbs(this, ${weekNum})" title="Select all orgs in Week ${weekNum}"/>
+            <strong>${weekLabel}</strong>
+          </div>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 ${runItem.date}</span>
+        </td>`
       : '';
 
     const borderStyle = orgIdx === rowspan - 1 ? 'border-bottom:2px solid #e8ecf4;' : '';
 
     // Summary Table Row
     summaryRows.push(`<tr style="${borderStyle}">
+      <td style="text-align:center;width:36px;vertical-align:middle;">
+        <input type="checkbox" class="row-cb" data-run-idx="${runIdx}" data-org="${org.name}" data-week="${weekNum}" onclick="updateSelectCount()"/>
+      </td>
       ${weekTd}
       <td><a href="playwright-report/index.html" target="_blank" class="org-link">${org.name} ↗</a></td>
       <td class="n">${org.total}</td>
@@ -441,9 +450,23 @@ const htmlContent = `<!DOCTYPE html>
 </div>
 
 <div class="sec-hdr"><div><h2>Organization Summary</h2><div class="sh-meta">All weeks &middot; Click org name to open its Playwright report &middot; ↗ opens in new tab</div></div></div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding:10px 16px;background:#fff;border-radius:8px;border:1px solid #e8ecf4;box-shadow:0 1px 4px rgba(0,0,0,0.04);">
+  <div style="font-size:11.5px;color:#1a3a6b;font-weight:600;">
+    Select single/multiple weeks or orgs using checkboxes to delete specific test data
+  </div>
+  <div style="display:flex;gap:12px;align-items:center;">
+    <span style="font-size:11px;color:#7a8ba8;"><strong id="selected-count" style="color:#1a3a6b;font-size:13px;">0</strong> selected</span>
+    <button id="btn-delete-selected" onclick="deleteSelectedData()" style="background:#e53935;color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;opacity:0.5;" disabled>
+      🗑️ Delete Selected
+    </button>
+  </div>
+</div>
+
 <div class="sum-wrap">
   <table id="org-summary-table">
     <thead><tr>
+      <th style="width:36px;text-align:center;"><input type="checkbox" id="select-all-cb" onclick="toggleSelectAll(this)" title="Select / Deselect All"/></th>
       <th>Week</th><th>Organization</th><th class="n">Total</th><th class="n">Passed</th><th class="n">Failed</th>
       <th class="n">Flaky</th><th class="n">Skipped</th><th class="n">Pass Rate</th><th class="n">Run Date</th><th class="n">Duration</th>
     </tr></thead>
@@ -451,7 +474,7 @@ const htmlContent = `<!DOCTYPE html>
       ${summaryRows.join('\n')}
     </tbody>
     <tfoot><tr>
-      <td colspan="2">TOTAL (${weekCount} weeks, ${totalRunCount} runs)</td>
+      <td colspan="3">TOTAL (${weekCount} weeks, ${totalRunCount} runs)</td>
       <td class="n">${totalTestsAll}</td>
       <td class="n" style="color:#0a7c55;font-weight:700">${totalPassedAll}</td>
       <td class="n" style="color:#b71c1c;font-weight:700">${totalFailedAll}</td>
@@ -520,6 +543,67 @@ const htmlContent = `<!DOCTYPE html>
 </div>
 
 <script>
+function toggleSelectAll(masterCb) {
+  const cbs = document.querySelectorAll('.row-cb, .cb-week');
+  cbs.forEach(cb => cb.checked = masterCb.checked);
+  updateSelectCount();
+}
+
+function toggleWeekCbs(weekCb, weekNum) {
+  const rowCbs = document.querySelectorAll(`.row-cb[data-week="${weekNum}"]`);
+  rowCbs.forEach(cb => cb.checked = weekCb.checked);
+  updateSelectCount();
+}
+
+function updateSelectCount() {
+  const checkedRows = document.querySelectorAll('.row-cb:checked');
+  const countSpan = document.getElementById('selected-count');
+  const btnDelete = document.getElementById('btn-delete-selected');
+  if (countSpan) countSpan.textContent = checkedRows.length;
+  if (btnDelete) {
+    if (checkedRows.length > 0) {
+      btnDelete.disabled = false;
+      btnDelete.style.opacity = '1';
+    } else {
+      btnDelete.disabled = true;
+      btnDelete.style.opacity = '0.5';
+    }
+  }
+}
+
+async function deleteSelectedData() {
+  const checkedRows = document.querySelectorAll('.row-cb:checked');
+  if (checkedRows.length === 0) return;
+
+  const items = [];
+  checkedRows.forEach(cb => {
+    items.push({
+      runIdx: parseInt(cb.dataset.runIdx, 10),
+      org: cb.dataset.org
+    });
+  });
+
+  if (!confirm(`Are you sure you want to delete ${items.length} selected item(s)?`)) {
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/delete-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemsToDelete: items })
+    });
+    const result = await res.json();
+    if (result.success) {
+      window.location.reload();
+    } else {
+      alert('Failed to delete data: ' + (result.message || 'Unknown error'));
+    }
+  } catch (err) {
+    alert('To persist data deletions on disk, please run "npm run dashboard" in your terminal to start the local server. Alternatively, delete entries directly from dashboard-history.json.');
+  }
+}
+
 const ORGS = ${JSON.stringify(orgLabels)};
 const PASSED = ${JSON.stringify(passedData)};
 const FAILED = ${JSON.stringify(failedData)};
