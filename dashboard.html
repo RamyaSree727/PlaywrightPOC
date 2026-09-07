@@ -5,9 +5,170 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Orgwise Regression Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    function toggleSelectAll(masterCb) {
+      const cbs = document.querySelectorAll('.row-cb, .cb-week');
+      cbs.forEach(cb => cb.checked = masterCb.checked);
+      updateSelectCount();
+    }
+
+    function toggleRunCbs(runCb, runIdx) {
+      const rowCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+      rowCbs.forEach(cb => cb.checked = runCb.checked);
+      updateSelectCount();
+    }
+
+    function updateSelectCount() {
+      const weekCbs = document.querySelectorAll('.cb-week');
+      weekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = Array.from(document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]'));
+        if (childCbs.length > 0) {
+          const allChecked = childCbs.every(cb => cb.checked);
+          if (allChecked) {
+            wCb.checked = true;
+          } else {
+            wCb.checked = false;
+          }
+        }
+      });
+
+      const checkedRowCbs = Array.from(document.querySelectorAll('.row-cb:checked'));
+      const checkedWeekCbs = Array.from(document.querySelectorAll('.cb-week:checked'));
+
+      const itemsMap = new Map();
+      checkedRowCbs.forEach(cb => {
+        itemsMap.set(cb.dataset.runIdx + '_' + cb.dataset.org, true);
+      });
+      checkedWeekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+        childCbs.forEach(cb => {
+          itemsMap.set(cb.dataset.runIdx + '_' + cb.dataset.org, true);
+        });
+      });
+
+      const totalOrgs = itemsMap.size;
+      const totalWeeks = checkedWeekCbs.length;
+
+      const countSpan = document.getElementById('selected-count');
+      const btnDelete = document.getElementById('btn-delete-selected');
+
+      if (countSpan) {
+        if (totalWeeks > 0 && totalOrgs > 0) {
+          const wText = totalWeeks === 1 ? '1 week' : totalWeeks + ' weeks';
+          const oText = totalOrgs === 1 ? '1 org' : totalOrgs + ' orgs';
+          countSpan.textContent = wText + ', ' + oText;
+        } else if (totalOrgs > 0) {
+          countSpan.textContent = totalOrgs === 1 ? '1 org' : totalOrgs + ' orgs';
+        } else {
+          countSpan.textContent = '0';
+        }
+      }
+
+      if (btnDelete) {
+        if (totalOrgs > 0) {
+          btnDelete.disabled = false;
+          btnDelete.removeAttribute('disabled');
+          btnDelete.style.opacity = '1';
+          btnDelete.style.cursor = 'pointer';
+          btnDelete.style.pointerEvents = 'auto';
+        } else {
+          btnDelete.disabled = true;
+          btnDelete.setAttribute('disabled', 'true');
+          btnDelete.style.opacity = '0.5';
+          btnDelete.style.cursor = 'not-allowed';
+          btnDelete.style.pointerEvents = 'none';
+        }
+      }
+    }
+
+    function requestPasscode() {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'passcode-overlay';
+        overlay.innerHTML = '<div class="passcode-dialog" role="dialog" aria-modal="true" aria-labelledby="passcode-title">' +
+          '<h2 id="passcode-title">Admin Access Required</h2>' +
+          '<p>Enter the admin passcode to authorize deletion.</p>' +
+          '<input class="passcode-input" type="password" autocomplete="current-password" autofocus>' +
+          '<div class="passcode-actions"><button type="button" class="passcode-cancel">Cancel</button><button type="button" class="passcode-submit">Authorize</button></div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('.passcode-input');
+        const finish = value => { overlay.remove(); resolve(value); };
+        overlay.querySelector('.passcode-cancel').onclick = () => finish('');
+        overlay.querySelector('.passcode-submit').onclick = () => finish(input.value);
+        input.onkeydown = event => {
+          if (event.key === 'Enter') finish(input.value);
+          if (event.key === 'Escape') finish('');
+        };
+        input.focus();
+      });
+    }
+
+    async function deleteSelectedData() {
+      const checkedRowCbs = Array.from(document.querySelectorAll('.row-cb:checked'));
+      const checkedWeekCbs = Array.from(document.querySelectorAll('.cb-week:checked'));
+
+      if (checkedRowCbs.length === 0 && checkedWeekCbs.length === 0) return;
+
+      const passcode = await requestPasscode();
+      if (!passcode) return;
+
+      const itemsMap = new Map();
+
+      // Add individual org row selections
+      checkedRowCbs.forEach(cb => {
+        const key = cb.dataset.runIdx + '_' + cb.dataset.org;
+        itemsMap.set(key, {
+          runIdx: parseInt(cb.dataset.runIdx, 10),
+          org: cb.dataset.org
+        });
+      });
+
+      // Add week selections (all orgs under that week run)
+      checkedWeekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+        childCbs.forEach(cb => {
+          const key = cb.dataset.runIdx + '_' + cb.dataset.org;
+          itemsMap.set(key, {
+            runIdx: parseInt(cb.dataset.runIdx, 10),
+            org: cb.dataset.org
+          });
+        });
+      });
+
+      const items = Array.from(itemsMap.values());
+      const apiEndpoint = window.location.protocol.startsWith('http')
+        ? '/api/delete-data'
+        : 'http://localhost:3000/api/delete-data';
+
+      try {
+        const res = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemsToDelete: items, passcode: passcode })
+        });
+        const result = await res.json();
+        if (result.success) {
+          window.location.href = window.location.href.split('#')[0] + '?t=' + Date.now();
+        } else {
+          alert('❌ Authorization Failed: ' + (result.message || 'Invalid Passcode'));
+        }
+      } catch (err) {
+        alert('To persist data deletions on disk, please run "npm run dashboard" in your terminal to start the local server. Alternatively, delete entries directly from dashboard-history.json.');
+      }
+    }
+  </script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Arial,sans-serif;font-size:11.5px;color:#1a1a2e;background:#f4f6fb;padding:28px 32px}
+    .passcode-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(13,27,62,.55)}
+    .passcode-dialog{width:min(100%,360px);padding:24px;background:#fff;border-radius:10px;box-shadow:0 16px 40px rgba(13,27,62,.28)}
+    .passcode-dialog h2{font-size:18px;color:#0d1b3e;margin-bottom:8px}.passcode-dialog p{color:#596579;margin-bottom:16px}
+    .passcode-input{width:100%;padding:11px 12px;border:1px solid #b9c3d3;border-radius:6px;font-size:16px;letter-spacing:2px}.passcode-input:focus{outline:2px solid #1e5fa8;outline-offset:1px}
+    .passcode-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.passcode-actions button{padding:9px 14px;border:0;border-radius:6px;cursor:pointer}.passcode-cancel{background:#edf0f5;color:#344054}.passcode-submit{background:#1e5fa8;color:#fff}
     .page-header{background:linear-gradient(135deg,#0d1b3e 0%,#1a3a6b 60%,#1e5fa8 100%);color:#fff;border-radius:10px;padding:32px 40px;margin-bottom:24px;position:relative;overflow:hidden}
     .page-header::before{content:'';position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,0.04)}
     .header-top{display:flex;justify-content:space-between;align-items:flex-start}
@@ -103,19 +264,19 @@
 <body style="padding-top:16px;">
 
 <div style="background:#eef6ff;border:1px solid #cce3ff;border-radius:8px;padding:10px 18px;margin-bottom:20px;font-size:12px;color:#1e5fa8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-  <div>💻 <strong>Local &amp; Offline Dashboard Access:</strong> Open this file directly or run <code>npm run dashboard</code> (or <code>node serve-dashboard.js</code>) to view locally with HTTP server.</div>
+  <div>💻 <strong>Local &amp; Offline Dashboard Access:</strong> Open this file directly or run <code>npm run dashboard</code> (or <code>node dashboard.js --serve</code>) to view locally with HTTP server.</div>
   <div style="font-size:10px;font-weight:bold;background:#1e5fa8;color:#fff;padding:3px 10px;border-radius:4px;">Local &amp; GitHub Pages Ready</div>
 </div>
 
 <div class="page-header">
   <div class="header-top">
     <div class="title-block">
-      <h1>Orgwise Regression Dashboard</h1>
-      <div class="sub">Automated Playwright regression &mdash; 1 week(s), 5 run(s) &mdash; Generated September 4, 2026 at 8:42 PM</div>
+      <h1>All Orgs Regression Dashboard</h1>
+      <div class="sub">Automated Playwright regression &mdash; 1 week(s), 5 run(s) &mdash; Generated September 7, 2026 at 3:09 PM</div>
     </div>
     <div class="run-badge">
-      <div class="rb-label">Latest Run</div><div class="rb-val">9/4/2026</div>
-      <div class="rb-label" style="margin-top:6px">Weeks</div><div class="rb-val">2</div>
+      <div class="rb-label">Latest Run</div><div class="rb-val">9/7/2026</div>
+      <div class="rb-label" style="margin-top:6px">Weeks</div><div class="rb-val">1</div>
     </div>
   </div>
   <div class="overview">
@@ -159,7 +320,7 @@
             <input type="checkbox" class="cb-week" data-run-idx="0" onclick="toggleRunCbs(this, 0)" title="Select all orgs in this run block"/>
             <strong>Week 1</strong>
           </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 8/24/2026</span>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/6/2026</span>
         </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -173,7 +334,7 @@
       <td class="n" style="color:#b05c00">1</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.8m</td>
     </tr>
 <tr style="border-bottom:2px solid #e8ecf4;">
@@ -190,7 +351,7 @@
       <td class="n" style="color:#b05c00">0</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.6m</td>
     </tr>
 <tr style="">
@@ -199,7 +360,7 @@
             <input type="checkbox" class="cb-week" data-run-idx="1" onclick="toggleRunCbs(this, 1)" title="Select all orgs in this run block"/>
             <strong>Week 1</strong>
           </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 8/24/2026</span>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/6/2026</span>
         </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -213,7 +374,7 @@
       <td class="n" style="color:#b05c00">1</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.8m</td>
     </tr>
 <tr style="border-bottom:2px solid #e8ecf4;">
@@ -230,7 +391,7 @@
       <td class="n" style="color:#b05c00">0</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.6m</td>
     </tr>
 <tr style="">
@@ -239,7 +400,7 @@
             <input type="checkbox" class="cb-week" data-run-idx="2" onclick="toggleRunCbs(this, 2)" title="Select all orgs in this run block"/>
             <strong>Week 1</strong>
           </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 8/24/2026</span>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/6/2026</span>
         </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -253,7 +414,7 @@
       <td class="n" style="color:#b05c00">1</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.8m</td>
     </tr>
 <tr style="border-bottom:2px solid #e8ecf4;">
@@ -270,7 +431,7 @@
       <td class="n" style="color:#b05c00">0</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">8/24/2026</td>
+      <td class="n">9/6/2026</td>
       <td class="n">0.6m</td>
     </tr>
 <tr style="">
@@ -279,7 +440,7 @@
             <input type="checkbox" class="cb-week" data-run-idx="3" onclick="toggleRunCbs(this, 3)" title="Select all orgs in this run block"/>
             <strong>Week 1</strong>
           </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/4/2026</span>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/7/2026</span>
         </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -293,7 +454,7 @@
       <td class="n" style="color:#b05c00">1</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">9/4/2026</td>
+      <td class="n">9/7/2026</td>
       <td class="n">0.8m</td>
     </tr>
 <tr style="border-bottom:2px solid #e8ecf4;">
@@ -310,7 +471,7 @@
       <td class="n" style="color:#b05c00">0</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">9/4/2026</td>
+      <td class="n">9/7/2026</td>
       <td class="n">0.6m</td>
     </tr>
 <tr style="">
@@ -319,7 +480,7 @@
             <input type="checkbox" class="cb-week" data-run-idx="4" onclick="toggleRunCbs(this, 4)" title="Select all orgs in this run block"/>
             <strong>Week 1</strong>
           </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/4/2026</span>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/7/2026</span>
         </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -333,31 +494,7 @@
       <td class="n" style="color:#b05c00">1</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.8m</td>
-    </tr>
-<tr style="border-bottom:2px solid #e8ecf4;">
-      
-      <td><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 ↗</a></td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">10</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">0</td>
-      <td class="n" style="color:#b05c00">0</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.6m</td>
-    </tr>
-<tr style="">
-      <td rowspan="2" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;"><strong>Week 2</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/4/2026</span></td>
-      <td><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 ↗</a></td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">9</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">1</td>
-      <td class="n" style="color:#b05c00">1</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">9/4/2026</td>
+      <td class="n">9/7/2026</td>
       <td class="n">0.8m</td>
     </tr>
 <tr style="border-bottom:2px solid #e8ecf4;">
@@ -374,87 +511,7 @@
       <td class="n" style="color:#b05c00">0</td>
       <td class="n" style="color:#607d8b">0</td>
       <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.6m</td>
-    </tr>
-<tr style="">
-      <td rowspan="2" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;">
-          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" class="cb-week" data-run-idx="5" onclick="toggleRunCbs(this, 5)" title="Select all orgs in this run block"/>
-            <strong>Week 2</strong>
-          </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/4/2026</span>
-        </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" class="row-cb" data-run-idx="5" data-org="Org1" data-week="2" onclick="updateSelectCount()"/>
-          <a href="playwright-report/index.html" target="_blank" class="org-link">Org1 ↗</a>
-        </div>
-      </td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">9</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">1</td>
-      <td class="n" style="color:#b05c00">1</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.8m</td>
-    </tr>
-<tr style="border-bottom:2px solid #e8ecf4;">
-      
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" class="row-cb" data-run-idx="5" data-org="Org2" data-week="2" onclick="updateSelectCount()"/>
-          <a href="playwright-report/index.html" target="_blank" class="org-link">Org2 ↗</a>
-        </div>
-      </td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">10</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">0</td>
-      <td class="n" style="color:#b05c00">0</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.6m</td>
-    </tr>
-<tr style="">
-      <td rowspan="2" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;">
-          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
-            <input type="checkbox" class="cb-week" data-run-idx="6" onclick="toggleRunCbs(this, 6)" title="Select all orgs in this run block"/>
-            <strong>Week 2</strong>
-          </div>
-          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/4/2026</span>
-        </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" class="row-cb" data-run-idx="6" data-org="Org1" data-week="2" onclick="updateSelectCount()"/>
-          <a href="playwright-report/index.html" target="_blank" class="org-link">Org1 ↗</a>
-        </div>
-      </td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">9</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">1</td>
-      <td class="n" style="color:#b05c00">1</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">9/4/2026</td>
-      <td class="n">0.8m</td>
-    </tr>
-<tr style="border-bottom:2px solid #e8ecf4;">
-      
-      <td>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <input type="checkbox" class="row-cb" data-run-idx="6" data-org="Org2" data-week="2" onclick="updateSelectCount()"/>
-          <a href="playwright-report/index.html" target="_blank" class="org-link">Org2 ↗</a>
-        </div>
-      </td>
-      <td class="n">10</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">10</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">0</td>
-      <td class="n" style="color:#b05c00">0</td>
-      <td class="n" style="color:#607d8b">0</td>
-      <td class="n"><span class="rc-score-badge score-a" style="font-size:11px;padding:3px 10px">100.0%</span></td>
-      <td class="n">9/4/2026</td>
+      <td class="n">9/7/2026</td>
       <td class="n">0.6m</td>
     </tr>
     </tbody>
@@ -477,7 +534,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">9.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -508,7 +565,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">10.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -539,7 +596,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">9.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -570,7 +627,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">10.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -601,7 +658,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">9.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -632,7 +689,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 8/24/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/6/2026</div>
       </div>
       <div class="rc-score-badge score-a">10.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -663,7 +720,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 9/4/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/7/2026</div>
       </div>
       <div class="rc-score-badge score-a">9.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -694,7 +751,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 9/4/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/7/2026</div>
       </div>
       <div class="rc-score-badge score-a">10.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -725,7 +782,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org1 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 9/4/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/7/2026</div>
       </div>
       <div class="rc-score-badge score-a">9.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -756,7 +813,7 @@
     <div class="rc-header">
       <div>
         <div class="rc-title"><a href="playwright-report/index.html" target="_blank" class="org-link">Org2 (Week 1) ↗</a></div>
-        <div class="rc-domain">10 tests &middot; 9/4/2026</div>
+        <div class="rc-domain">10 tests &middot; 9/7/2026</div>
       </div>
       <div class="rc-score-badge score-a">10.0<span style="font-size:11px;font-weight:600">/10</span></div>
     </div>
@@ -799,7 +856,7 @@
 
 <div class="viz-section" style="background:linear-gradient(135deg,#f0f7ff 0%,#f4f6fb 100%)">
   <div class="viz-header"><span class="viz-icon">📅</span>
-    <div><h2>Weekly Analysis</h2><p>2 week(s) of execution data</p></div>
+    <div><h2>Weekly Analysis</h2><p>1 week(s) of execution data</p></div>
   </div>
   <div class="chart-grid">
     <div class="chart-card" style="padding:0;overflow:hidden">
@@ -809,7 +866,7 @@
       </tr></thead>
       <tbody id="weekly-table">
         <tr>
-      <td><strong>Week 1</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 8/24/2026 &ndash; 9/4/2026</span></td>
+      <td><strong>Week 1</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 9/6/2026 &ndash; 9/7/2026</span></td>
       <td class="n">100</td>
       <td class="n" style="color:#0a7c55;font-weight:700">95</td>
       <td class="n" style="color:#b71c1c;font-weight:700">5</td>
@@ -850,7 +907,7 @@
 
 <div class="final-bar">
   <div class="fb-left">
-    <h3>Overall Verdict &mdash; September 4, 2026 at 8:42 PM</h3>
+    <h3>Overall Verdict &mdash; September 7, 2026 at 3:09 PM</h3>
     <p>100 tests &middot; 1 weeks &middot; 6.9m &middot; 5 failures &middot; 5 flaky</p>
     <div class="fb-cs-row">
       
@@ -919,14 +976,14 @@
 </div>
 
 <script>
-const ORGS = ["Week 1 (8/24/2026) — Org1","Week 1 (8/24/2026) — Org2","Week 1 (8/24/2026) — Org1","Week 1 (8/24/2026) — Org2","Week 1 (8/24/2026) — Org1","Week 1 (8/24/2026) — Org2","Week 1 (9/4/2026) — Org1","Week 1 (9/4/2026) — Org2","Week 1 (9/4/2026) — Org1","Week 1 (9/4/2026) — Org2"];
+const ORGS = ["Week 1 (9/6/2026) — Org1","Week 1 (9/6/2026) — Org2","Week 1 (9/6/2026) — Org1","Week 1 (9/6/2026) — Org2","Week 1 (9/6/2026) — Org1","Week 1 (9/6/2026) — Org2","Week 1 (9/7/2026) — Org1","Week 1 (9/7/2026) — Org2","Week 1 (9/7/2026) — Org1","Week 1 (9/7/2026) — Org2"];
 const PASSED = [9,10,9,10,9,10,9,10,9,10];
 const FAILED = [1,0,1,0,1,0,1,0,1,0];
 const FLAKY = [1,0,1,0,1,0,1,0,1,0];
 const SKIP = [0,0,0,0,0,0,0,0,0,0];
 const RATES = [90,100,90,100,90,100,90,100,90,100];
 
-const WK_L = ["Week 1 (8/24/2026 &ndash; 9/4/2026)"];
+const WK_L = ["Week 1 (9/6/2026 &ndash; 9/7/2026)"];
 const WK_R = [95];
 const WK_T = [100];
 

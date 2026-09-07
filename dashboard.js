@@ -1,9 +1,12 @@
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
+const crypto = require('crypto');
+const { exec } = require('child_process');
 
 const RESULTS_FILE = path.join(__dirname, 'results.json');
 const HISTORY_FILE = path.join(__dirname, 'dashboard-history.json');
-const INDEX_HTML = path.join(__dirname, 'index.html');
+const DASHBOARD_HTML = path.join(__dirname, 'dashboard.html');
 
 // 1. Read existing history or initialize empty history
 let history = [];
@@ -385,9 +388,170 @@ const htmlContent = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Orgwise Regression Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script>
+    function toggleSelectAll(masterCb) {
+      const cbs = document.querySelectorAll('.row-cb, .cb-week');
+      cbs.forEach(cb => cb.checked = masterCb.checked);
+      updateSelectCount();
+    }
+
+    function toggleRunCbs(runCb, runIdx) {
+      const rowCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+      rowCbs.forEach(cb => cb.checked = runCb.checked);
+      updateSelectCount();
+    }
+
+    function updateSelectCount() {
+      const weekCbs = document.querySelectorAll('.cb-week');
+      weekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = Array.from(document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]'));
+        if (childCbs.length > 0) {
+          const allChecked = childCbs.every(cb => cb.checked);
+          if (allChecked) {
+            wCb.checked = true;
+          } else {
+            wCb.checked = false;
+          }
+        }
+      });
+
+      const checkedRowCbs = Array.from(document.querySelectorAll('.row-cb:checked'));
+      const checkedWeekCbs = Array.from(document.querySelectorAll('.cb-week:checked'));
+
+      const itemsMap = new Map();
+      checkedRowCbs.forEach(cb => {
+        itemsMap.set(cb.dataset.runIdx + '_' + cb.dataset.org, true);
+      });
+      checkedWeekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+        childCbs.forEach(cb => {
+          itemsMap.set(cb.dataset.runIdx + '_' + cb.dataset.org, true);
+        });
+      });
+
+      const totalOrgs = itemsMap.size;
+      const totalWeeks = checkedWeekCbs.length;
+
+      const countSpan = document.getElementById('selected-count');
+      const btnDelete = document.getElementById('btn-delete-selected');
+
+      if (countSpan) {
+        if (totalWeeks > 0 && totalOrgs > 0) {
+          const wText = totalWeeks === 1 ? '1 week' : totalWeeks + ' weeks';
+          const oText = totalOrgs === 1 ? '1 org' : totalOrgs + ' orgs';
+          countSpan.textContent = wText + ', ' + oText;
+        } else if (totalOrgs > 0) {
+          countSpan.textContent = totalOrgs === 1 ? '1 org' : totalOrgs + ' orgs';
+        } else {
+          countSpan.textContent = '0';
+        }
+      }
+
+      if (btnDelete) {
+        if (totalOrgs > 0) {
+          btnDelete.disabled = false;
+          btnDelete.removeAttribute('disabled');
+          btnDelete.style.opacity = '1';
+          btnDelete.style.cursor = 'pointer';
+          btnDelete.style.pointerEvents = 'auto';
+        } else {
+          btnDelete.disabled = true;
+          btnDelete.setAttribute('disabled', 'true');
+          btnDelete.style.opacity = '0.5';
+          btnDelete.style.cursor = 'not-allowed';
+          btnDelete.style.pointerEvents = 'none';
+        }
+      }
+    }
+
+    function requestPasscode() {
+      return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'passcode-overlay';
+        overlay.innerHTML = '<div class="passcode-dialog" role="dialog" aria-modal="true" aria-labelledby="passcode-title">' +
+          '<h2 id="passcode-title">Admin Access Required</h2>' +
+          '<p>Enter the admin passcode to authorize deletion.</p>' +
+          '<input class="passcode-input" type="password" autocomplete="current-password" autofocus>' +
+          '<div class="passcode-actions"><button type="button" class="passcode-cancel">Cancel</button><button type="button" class="passcode-submit">Authorize</button></div>' +
+          '</div>';
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('.passcode-input');
+        const finish = value => { overlay.remove(); resolve(value); };
+        overlay.querySelector('.passcode-cancel').onclick = () => finish('');
+        overlay.querySelector('.passcode-submit').onclick = () => finish(input.value);
+        input.onkeydown = event => {
+          if (event.key === 'Enter') finish(input.value);
+          if (event.key === 'Escape') finish('');
+        };
+        input.focus();
+      });
+    }
+
+    async function deleteSelectedData() {
+      const checkedRowCbs = Array.from(document.querySelectorAll('.row-cb:checked'));
+      const checkedWeekCbs = Array.from(document.querySelectorAll('.cb-week:checked'));
+
+      if (checkedRowCbs.length === 0 && checkedWeekCbs.length === 0) return;
+
+      const passcode = await requestPasscode();
+      if (!passcode) return;
+
+      const itemsMap = new Map();
+
+      // Add individual org row selections
+      checkedRowCbs.forEach(cb => {
+        const key = cb.dataset.runIdx + '_' + cb.dataset.org;
+        itemsMap.set(key, {
+          runIdx: parseInt(cb.dataset.runIdx, 10),
+          org: cb.dataset.org
+        });
+      });
+
+      // Add week selections (all orgs under that week run)
+      checkedWeekCbs.forEach(wCb => {
+        const runIdx = wCb.dataset.runIdx;
+        const childCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
+        childCbs.forEach(cb => {
+          const key = cb.dataset.runIdx + '_' + cb.dataset.org;
+          itemsMap.set(key, {
+            runIdx: parseInt(cb.dataset.runIdx, 10),
+            org: cb.dataset.org
+          });
+        });
+      });
+
+      const items = Array.from(itemsMap.values());
+      const apiEndpoint = window.location.protocol.startsWith('http')
+        ? '/api/delete-data'
+        : 'http://localhost:3000/api/delete-data';
+
+      try {
+        const res = await fetch(apiEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemsToDelete: items, passcode: passcode })
+        });
+        const result = await res.json();
+        if (result.success) {
+          window.location.href = window.location.href.split('#')[0] + '?t=' + Date.now();
+        } else {
+          alert('❌ Authorization Failed: ' + (result.message || 'Invalid Passcode'));
+        }
+      } catch (err) {
+        alert('To persist data deletions on disk, please run "npm run dashboard" in your terminal to start the local server. Alternatively, delete entries directly from dashboard-history.json.');
+      }
+    }
+  </script>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Segoe UI',Arial,sans-serif;font-size:11.5px;color:#1a1a2e;background:#f4f6fb;padding:28px 32px}
+    .passcode-overlay{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(13,27,62,.55)}
+    .passcode-dialog{width:min(100%,360px);padding:24px;background:#fff;border-radius:10px;box-shadow:0 16px 40px rgba(13,27,62,.28)}
+    .passcode-dialog h2{font-size:18px;color:#0d1b3e;margin-bottom:8px}.passcode-dialog p{color:#596579;margin-bottom:16px}
+    .passcode-input{width:100%;padding:11px 12px;border:1px solid #b9c3d3;border-radius:6px;font-size:16px;letter-spacing:2px}.passcode-input:focus{outline:2px solid #1e5fa8;outline-offset:1px}
+    .passcode-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}.passcode-actions button{padding:9px 14px;border:0;border-radius:6px;cursor:pointer}.passcode-cancel{background:#edf0f5;color:#344054}.passcode-submit{background:#1e5fa8;color:#fff}
     .page-header{background:linear-gradient(135deg,#0d1b3e 0%,#1a3a6b 60%,#1e5fa8 100%);color:#fff;border-radius:10px;padding:32px 40px;margin-bottom:24px;position:relative;overflow:hidden}
     .page-header::before{content:'';position:absolute;right:-80px;top:-80px;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,0.04)}
     .header-top{display:flex;justify-content:space-between;align-items:flex-start}
@@ -483,7 +647,7 @@ const htmlContent = `<!DOCTYPE html>
 <body style="padding-top:16px;">
 
 <div style="background:#eef6ff;border:1px solid #cce3ff;border-radius:8px;padding:10px 18px;margin-bottom:20px;font-size:12px;color:#1e5fa8;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-  <div>💻 <strong>Local &amp; Offline Dashboard Access:</strong> Open this file directly or run <code>npm run dashboard</code> (or <code>node serve-dashboard.js</code>) to view locally with HTTP server.</div>
+  <div>💻 <strong>Local &amp; Offline Dashboard Access:</strong> Open this file directly or run <code>npm run dashboard</code> (or <code>node dashboard.js --serve</code>) to view locally with HTTP server.</div>
   <div style="font-size:10px;font-weight:bold;background:#1e5fa8;color:#fff;padding:3px 10px;border-radius:4px;">Local &amp; GitHub Pages Ready</div>
 </div>
 
@@ -605,67 +769,6 @@ const htmlContent = `<!DOCTYPE html>
 </div>
 
 <script>
-function toggleSelectAll(masterCb) {
-  const cbs = document.querySelectorAll('.row-cb, .cb-week');
-  cbs.forEach(cb => cb.checked = masterCb.checked);
-  updateSelectCount();
-}
-
-function toggleRunCbs(runCb, runIdx) {
-  const rowCbs = document.querySelectorAll('.row-cb[data-run-idx="' + runIdx + '"]');
-  rowCbs.forEach(cb => cb.checked = runCb.checked);
-  updateSelectCount();
-}
-
-function updateSelectCount() {
-  const checkedRows = document.querySelectorAll('.row-cb:checked');
-  const countSpan = document.getElementById('selected-count');
-  const btnDelete = document.getElementById('btn-delete-selected');
-  if (countSpan) countSpan.textContent = checkedRows.length;
-  if (btnDelete) {
-    if (checkedRows.length > 0) {
-      btnDelete.disabled = false;
-      btnDelete.style.opacity = '1';
-    } else {
-      btnDelete.disabled = true;
-      btnDelete.style.opacity = '0.5';
-    }
-  }
-}
-
-async function deleteSelectedData() {
-  const checkedRows = document.querySelectorAll('.row-cb:checked');
-  if (checkedRows.length === 0) return;
-
-  const items = [];
-  checkedRows.forEach(cb => {
-    items.push({
-      runIdx: parseInt(cb.dataset.runIdx, 10),
-      org: cb.dataset.org
-    });
-  });
-
-  if (!confirm('Are you sure you want to delete ' + items.length + ' selected item(s)?')) {
-    return;
-  }
-
-  try {
-    const res = await fetch('/api/delete-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemsToDelete: items })
-    });
-    const result = await res.json();
-    if (result.success) {
-      window.location.reload();
-    } else {
-      alert('Failed to delete data: ' + (result.message || 'Unknown error'));
-    }
-  } catch (err) {
-    alert('To persist data deletions on disk, please run "npm run dashboard" in your terminal to start the local server. Alternatively, delete entries directly from dashboard-history.json.');
-  }
-}
-
 const ORGS = ${JSON.stringify(orgLabels)};
 const PASSED = ${JSON.stringify(passedData)};
 const FAILED = ${JSON.stringify(failedData)};
@@ -731,8 +834,8 @@ if (typeof Chart !== 'undefined') {
 </body>
 </html>`;
 
-fs.writeFileSync(INDEX_HTML, htmlContent, 'utf8');
-console.log('✅ Successfully generated index.html!');
+fs.writeFileSync(DASHBOARD_HTML, htmlContent, 'utf8');
+console.log('✅ Successfully generated dashboard.html!');
 
 // 6. Generate email-body.html for email report
 const triggeredBy = process.env.GITHUB_EVENT_NAME === 'schedule'
@@ -829,7 +932,7 @@ const emailBodyHtml = `<!DOCTYPE html>
     ${failedCasesHtml}
 
     <p style="margin-top: 22px; font-size: 12px; color: #4a5568;">
-      Attached to this email are the interactive <code>index.html</code> dashboard and the Playwright execution report (<code>playwright-test-report.html</code>).
+      Attached to this email are the interactive <code>dashboard.html</code> dashboard and the Playwright execution report (<code>playwright-test-report.html</code>).
     </p>
 
     <div class="footer">
@@ -842,3 +945,143 @@ const emailBodyHtml = `<!DOCTYPE html>
 const EMAIL_BODY_FILE = path.join(__dirname, 'email-body.html');
 fs.writeFileSync(EMAIL_BODY_FILE, emailBodyHtml, 'utf8');
 console.log('✅ Successfully generated email-body.html!');
+
+function startDashboardServer() {
+  const port = process.env.PORT || 3000;
+  const rootDir = __dirname;
+  const adminPasscodeHash = process.env.ADMIN_PASSCODE_HASH;
+
+  if (!/^[a-f0-9]{64}$/i.test(adminPasscodeHash || '')) {
+    throw new Error('ADMIN_PASSCODE_HASH is not configured for this Windows user.');
+  }
+
+  const mimeTypes = {
+    '.html': 'text/html; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.js': 'application/javascript',
+    '.json': 'application/json',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.zip': 'application/zip',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf'
+  };
+
+  const server = http.createServer((req, res) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    const reqUrl = decodeURIComponent(req.url.split('?')[0]);
+
+    if (req.method === 'POST' && reqUrl === '/api/delete-data') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { itemsToDelete, passcode } = JSON.parse(body);
+          const inputHash = crypto.createHash('sha256').update(passcode || '').digest('hex');
+
+          if (inputHash !== adminPasscodeHash) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'Unauthorized: Invalid Admin Passcode' }));
+            return;
+          }
+
+          if (fs.existsSync(HISTORY_FILE)) {
+            const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+            const byRun = {};
+            itemsToDelete.forEach(item => {
+              if (!byRun[item.runIdx]) byRun[item.runIdx] = [];
+              byRun[item.runIdx].push(item.org);
+            });
+
+            Object.keys(byRun).map(Number).sort((a, b) => b - a).forEach(runIdx => {
+              if (!history[runIdx]) return;
+              byRun[runIdx].forEach(orgName => {
+                if (history[runIdx].orgs) delete history[runIdx].orgs[orgName];
+              });
+              if (!history[runIdx].orgs || Object.keys(history[runIdx].orgs).length === 0) {
+                history.splice(runIdx, 1);
+              }
+            });
+
+            fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2), 'utf8');
+            exec('node dashboard.js', (genErr) => {
+              if (genErr) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, message: genErr.message }));
+                return;
+              }
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+            });
+          } else {
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, message: 'History file not found' }));
+          }
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, message: err.message }));
+        }
+      });
+      return;
+    }
+
+    const requestedPath = reqUrl === '/' ? '/dashboard.html' : reqUrl;
+    const filePath = path.normalize(path.join(rootDir, requestedPath));
+    if (filePath !== rootDir && !filePath.startsWith(rootDir + path.sep)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('Forbidden');
+      return;
+    }
+
+    fs.stat(filePath, (err, stats) => {
+      if (err && requestedPath.includes('playwright-report/index.html')) {
+        const fallbackPath = path.join(rootDir, 'playwright-test-report.html');
+        if (fs.existsSync(fallbackPath)) {
+          res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+          fs.createReadStream(fallbackPath).pipe(res);
+          return;
+        }
+      }
+      if (err || !stats.isFile()) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end(`File not found: ${requestedPath}`);
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': mimeTypes[path.extname(filePath).toLowerCase()] || 'application/octet-stream' });
+      fs.createReadStream(filePath).pipe(res);
+    });
+  });
+
+  server.on('error', err => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${port} is already running. Open http://localhost:${port}`);
+    } else {
+      console.error('Server error:', err);
+    }
+  });
+
+  server.listen(port, () => {
+    const url = `http://localhost:${port}`;
+    console.log(`Dashboard server is live at ${url}`);
+    const startCommand = process.platform === 'win32' ? `start ${url}` : process.platform === 'darwin' ? `open ${url}` : `xdg-open ${url}`;
+    exec(startCommand, () => {});
+  });
+}
+
+if (process.argv.includes('--serve')) {
+  startDashboardServer();
+}

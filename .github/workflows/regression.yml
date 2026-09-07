@@ -63,7 +63,7 @@ jobs:
         env:
           TARGET_ORG: ${{ github.event.inputs.target_org }}
         run: |
-          node generate-dashboard.js
+          node dashboard.js
           if [ -f "playwright-report/index.html" ]; then
             cp playwright-report/index.html playwright-test-report.html
           fi
@@ -74,7 +74,7 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           touch .nojekyll
-          git add -f dashboard-history.json index.html playwright-test-report.html playwright-report/ reports/ .nojekyll
+          git add -f dashboard-history.json dashboard.html playwright-test-report.html playwright-report/ reports/ .nojekyll
           git commit -m "auto: update regression dashboard data [skip ci]" || echo "No changes to commit"
           git push || echo "Push failed or no remote changes"
 
@@ -84,7 +84,7 @@ jobs:
         with:
           name: combined-org1-org2-dashboard
           path: |
-            index.html
+            dashboard.html
             dashboard-history.json
             playwright-report/
             reports/
@@ -105,4 +105,4 @@ jobs:
           secure: true
           priority: normal
           html_body: file://email-body.html
-          attachments: index.html,playwright-test-report.html
+          attachments: dashboard.html,playwright-test-report.html

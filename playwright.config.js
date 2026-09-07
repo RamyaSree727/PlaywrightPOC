@@ -75,7 +75,7 @@ reporter: [
       retries: 2,
       workers: 2,
       use: { ...devices['Desktop Chrome'],
-        channel : 'chrome',
+        channel : process.env.CI ? undefined : 'chrome',
         outputDir: 'test-artifacts/chrome',
         viewport: {
           width: 1920,
@@ -91,7 +91,7 @@ reporter: [
       retries: 2,
       workers: 2,
       use: { ...devices['Desktop Edge'],
-        channel : 'msedge',
+        channel : process.env.CI ? undefined : 'msedge',
         outputDir: 'test-artifacts/edge',
         viewport: {
           width: 1920,
@@ -107,7 +107,7 @@ reporter: [
        retries: 2,
       workers: 2,
       use: { ...devices['Desktop Chrome'],
-        channel : 'chrome',
+        channel : process.env.CI ? undefined : 'chrome',
         outputDir: 'test-artifacts/chrome',
         viewport: {
           width: 1920,
@@ -126,7 +126,7 @@ reporter: [
       retries: 2,
       workers: 2,
       use: { ...devices['Desktop Chrome'],
-        channel : 'chrome',
+        channel : process.env.CI ? undefined : 'chrome',
         outputDir: 'test-artifacts/chrome',
         viewport: {
           width: 1920,
