@@ -254,5 +254,31 @@
         "reportPath": "reports/Org2/index.html"
       }
     }
+  },
+  {
+    "date": "9/13/2026",
+    "timestamp": "2026-09-13T01:40:51.512Z",
+    "orgs": {
+      "Org1": {
+        "name": "Org1",
+        "total": 10,
+        "passed": 9,
+        "failed": 1,
+        "flaky": 1,
+        "skipped": 0,
+        "durationMs": 45000,
+        "reportPath": "reports/Org1/index.html"
+      },
+      "Org2": {
+        "name": "Org2",
+        "total": 10,
+        "passed": 10,
+        "failed": 0,
+        "flaky": 0,
+        "skipped": 0,
+        "durationMs": 38000,
+        "reportPath": "reports/Org2/index.html"
+      }
+    }
   }
 ]
