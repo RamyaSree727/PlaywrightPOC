@@ -2,8 +2,8 @@ name: Scheduled Regression Suite - Org1 & Org2
 
 on:
   schedule:
-    # Runs daily at 00:00 UTC (Modify cron expression as per schedule requirement)
-    - cron: '0 0 * * *'
+    - cron: '15 1 * * *' # Org1
+    - cron: '30 3 * * *' # Org2
   workflow_dispatch:
     inputs:
       target_org:
@@ -47,7 +47,16 @@ jobs:
         id: run_tests
         continue-on-error: true
         run: |
-          TARGET="${{ github.event.inputs.target_org }}"
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "15 1 * * *") TARGET="Org1" ;;
+              "30 3 * * *") TARGET="Org2" ;;
+              *) echo "Unknown schedule: ${{ github.event.schedule }}"; exit 1 ;;
+            esac
+          else
+            TARGET="${{ github.event.inputs.target_org }}"
+          fi
+          echo "TARGET_ORG=$TARGET" >> "$GITHUB_ENV"
           if [ "$TARGET" = "Org1" ]; then
             TEST_PATH="Tests/Org1"
           elif [ "$TARGET" = "Org2" ]; then
@@ -60,8 +69,6 @@ jobs:
 
       - name: Generate Orgwise Dashboard HTML
         if: always()
-        env:
-          TARGET_ORG: ${{ github.event.inputs.target_org }}
         run: |
           node dashboard.js
           if [ -f "playwright-report/index.html" ]; then
@@ -106,3 +113,23 @@ jobs:
           priority: normal
           html_body: file://email-body.html
           attachments: dashboard.html,playwright-test-report.html
+
+      - name: Send final dashboard email
+        uses: dawidd6/action-send-mail@v4
+        if: always() && (github.event.inputs.target_org == 'All' || github.event.schedule == '30 3 * * *')
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "Regression Dashboard - All Organizations"
+          to: ${{ github.event.inputs.recipient_email || 'nagasree727@gmail.com' }}
+          from: "Playwright Test Automation <${{ secrets.SMTP_USERNAME }}>"
+          secure: true
+          priority: normal
+          html_body: |
+            <p>Hello Team,</p>
+            <p>All scheduled organization regression executions are complete.</p>
+            <p>The latest dashboard is attached to this email.</p>
+            <p>Regards,<br/><strong>Automation Quality Assurance Team</strong></p>
+          attachments: dashboard.html
