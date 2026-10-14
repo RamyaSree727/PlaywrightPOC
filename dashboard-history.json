@@ -176,5 +176,21 @@
         "reportPath": "reports/Org2/index.html"
       }
     }
+  },
+  {
+    "date": "10/14/2026",
+    "timestamp": "2026-10-14T08:55:23.065Z",
+    "orgs": {
+      "General": {
+        "name": "General",
+        "total": 6,
+        "passed": 4,
+        "failed": 2,
+        "flaky": 2,
+        "skipped": 0,
+        "durationMs": 88840,
+        "reportPath": "reports/General/index.html"
+      }
+    }
   }
 ]
