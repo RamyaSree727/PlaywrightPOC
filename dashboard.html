@@ -271,8 +271,8 @@
 <div class="page-header">
   <div class="header-top">
     <div class="title-block">
-      <h1>Org1 Regression Dashboard</h1>
-      <div class="sub">Automated Playwright regression &mdash; 3 week(s), 12 run(s) &mdash; Generated October 16, 2026 at 5:50 AM</div>
+      <h1>Org2 Regression Dashboard</h1>
+      <div class="sub">Automated Playwright regression &mdash; 3 week(s), 13 run(s) &mdash; Generated October 16, 2026 at 8:25 AM</div>
     </div>
     <div class="run-badge">
       <div class="rb-label">Latest Run</div><div class="rb-val">10/16/2026</div>
@@ -282,12 +282,12 @@
   <div class="overview">
     <h3>Executive Summary</h3>
     <div class="metric-row">
-      <div class="metric-cell"><div class="mc-label">Weeks</div><div class="mc-val">3</div><div class="mc-sub">12 total runs</div></div>
-      <div class="metric-cell"><div class="mc-label">Total Tests</div><div class="mc-val">170</div><div class="mc-sub">All runs &amp; orgs</div></div>
-      <div class="metric-cell mc-green"><div class="mc-label">Passed</div><div class="mc-val">153</div><div class="mc-sub">90.0% pass rate</div></div>
-      <div class="metric-cell mc-red"><div class="mc-label">Failed</div><div class="mc-val">17</div><div class="mc-sub">17 flaky</div></div>
+      <div class="metric-cell"><div class="mc-label">Weeks</div><div class="mc-val">3</div><div class="mc-sub">13 total runs</div></div>
+      <div class="metric-cell"><div class="mc-label">Total Tests</div><div class="mc-val">176</div><div class="mc-sub">All runs &amp; orgs</div></div>
+      <div class="metric-cell mc-green"><div class="mc-label">Passed</div><div class="mc-val">157</div><div class="mc-sub">89.2% pass rate</div></div>
+      <div class="metric-cell mc-red"><div class="mc-label">Failed</div><div class="mc-val">19</div><div class="mc-sub">19 flaky</div></div>
       <div class="metric-cell mc-yellow"><div class="mc-label">Skipped</div><div class="mc-val">0</div><div class="mc-sub">Excluded</div></div>
-      <div class="metric-cell mc-blue"><div class="mc-label">Duration</div><div class="mc-val">17.1m</div><div class="mc-sub">Total across all</div></div>
+      <div class="metric-cell mc-blue"><div class="mc-label">Duration</div><div class="mc-val">18.6m</div><div class="mc-sub">Total across all</div></div>
     </div>
   </div>
 </div>
@@ -709,15 +709,38 @@
       <td class="n">10/16/2026</td>
       <td class="n">0.6m</td>
     </tr>
+<tr style="border-bottom:2px solid #e8ecf4;">
+      <td rowspan="1" style="vertical-align:middle;background:#f8faff;border-right:2px solid #e8ecf4;text-align:center;">
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:4px;">
+            <input type="checkbox" class="cb-week" data-run-idx="12" onclick="toggleRunCbs(this, 12)" title="Select all orgs in this run block"/>
+            <strong>Week 3</strong>
+          </div>
+          <span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 10/16/2026</span>
+        </td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <input type="checkbox" class="row-cb" data-run-idx="12" data-org="General" data-week="3" onclick="updateSelectCount()"/>
+          <a href="reports/General/index.html" target="_blank" class="org-link">General ↗</a>
+        </div>
+      </td>
+      <td class="n">6</td>
+      <td class="n" style="color:#0a7c55;font-weight:700">4</td>
+      <td class="n" style="color:#b71c1c;font-weight:700">2</td>
+      <td class="n" style="color:#b05c00">2</td>
+      <td class="n" style="color:#607d8b">0</td>
+      <td class="n"><span class="rc-score-badge score-c" style="font-size:11px;padding:3px 10px">66.7%</span></td>
+      <td class="n">10/16/2026</td>
+      <td class="n">1.5m</td>
+    </tr>
     </tbody>
     <tfoot><tr>
-      <td colspan="2">TOTAL (3 weeks, 12 runs)</td>
-      <td class="n">170</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">153</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">17</td>
-      <td class="n">17</td><td class="n">0</td>
-      <td class="n"><span class="rc-score-badge score-b" style="font-size:11px;padding:3px 10px">90.0%</span></td>
-      <td class="n">&mdash;</td><td class="n">17.1m</td>
+      <td colspan="2">TOTAL (3 weeks, 13 runs)</td>
+      <td class="n">176</td>
+      <td class="n" style="color:#0a7c55;font-weight:700">157</td>
+      <td class="n" style="color:#b71c1c;font-weight:700">19</td>
+      <td class="n">19</td><td class="n">0</td>
+      <td class="n"><span class="rc-score-badge score-b" style="font-size:11px;padding:3px 10px">89.2%</span></td>
+      <td class="n">&mdash;</td><td class="n">18.6m</td>
     </tr></tfoot>
   </table>
 </div>
@@ -1313,6 +1336,37 @@
       <div class="rc-stat"><strong>0.6m</strong>Total</div>
     </div>
   </div>
+
+  <div class="rating-card">
+    <div class="rc-header">
+      <div>
+        <div class="rc-title"><a href="reports/General/index.html" target="_blank" class="org-link">General (Week 3) ↗</a></div>
+        <div class="rc-domain">6 tests &middot; 10/16/2026</div>
+      </div>
+      <div class="rc-score-badge score-c">6.7<span style="font-size:11px;font-weight:600">/10</span></div>
+    </div>
+    <div class="rc-divider"></div>
+    <div class="rc-breakdown">
+      <div class="rb-row"><span class="rb-criterion">Pass Rate (4/6)</span>
+        <div class="rb-bar-wrap"><div class="rb-bar good" style="width:66.7%"></div></div>
+        <span class="rb-pts">66.7%</span></div>
+      <div class="rb-row"><span class="rb-criterion">Stability (flaky: 2)</span>
+        <div class="rb-bar-wrap"><div class="rb-bar good" style="width:66.7%"></div></div>
+        <span class="rb-pts">4 issues</span></div>
+      <div class="rb-row"><span class="rb-criterion">Failed Tests</span>
+        <div class="rb-bar-wrap"><div class="rb-bar ok" style="width:33%"></div></div>
+        <span class="rb-pts">2 failed</span></div>
+      <div class="rb-row"><span class="rb-criterion">Avg Duration / test</span>
+        <div class="rb-bar-wrap"><div class="rb-bar good" style="width:65%"></div></div>
+        <span class="rb-pts">14.85s</span></div>
+    </div>
+    <div class="rc-stats">
+      <div class="rc-stat"><strong style="color:#0a7c55">4</strong>Passed</div>
+      <div class="rc-stat"><strong style="color:#b71c1c">2</strong>Failed</div>
+      <div class="rc-stat"><strong style="color:#b05c00">2</strong>Flaky</div>
+      <div class="rc-stat"><strong>1.5m</strong>Total</div>
+    </div>
+  </div>
 </div>
 
 <div class="viz-section">
@@ -1363,13 +1417,13 @@
     </tr>
 <tr>
       <td><strong>Week 3</strong><br/><span style="font-size:10px;color:#7a8ba8;font-weight:normal;">📅 10/15/2026 &ndash; 10/16/2026</span></td>
-      <td class="n">26</td>
-      <td class="n" style="color:#0a7c55;font-weight:700">23</td>
-      <td class="n" style="color:#b71c1c;font-weight:700">3</td>
-      <td class="n" style="color:#b05c00">3</td>
+      <td class="n">32</td>
+      <td class="n" style="color:#0a7c55;font-weight:700">27</td>
+      <td class="n" style="color:#b71c1c;font-weight:700">5</td>
+      <td class="n" style="color:#b05c00">5</td>
       <td><div class="wk-rate-wrap">
-        <div class="wk-rate-bar-bg"><div class="wk-rate-bar" style="width:88.5%;background:#f4a93a"></div></div>
-        <span class="wk-rate-val" style="color:#f4a93a">88.5%</span>
+        <div class="wk-rate-bar-bg"><div class="wk-rate-bar" style="width:84.4%;background:#f4a93a"></div></div>
+        <span class="wk-rate-val" style="color:#f4a93a">84.4%</span>
       </div></td>
     </tr>
       </tbody></table>
@@ -1393,6 +1447,7 @@
 <li><span>❌</span><span><strong>Week 2 › Org1:</strong> 1 failed, 1 flaky (90.0% pass rate).</span></li>
 <li><span>❌</span><span><strong>Week 3 › General:</strong> 2 failed, 2 flaky (66.7% pass rate).</span></li>
 <li><span>❌</span><span><strong>Week 3 › Org1:</strong> 1 failed, 1 flaky (90.0% pass rate).</span></li>
+<li><span>❌</span><span><strong>Week 3 › General:</strong> 2 failed, 2 flaky (66.7% pass rate).</span></li>
   </ul></div>
   <div class="obs-card"><div class="obs-hdr amber">Recommendations</div><ul class="obs-body">
     <li><span>🔴</span><span><strong>HIGH:</strong> Investigate failure in Week 1 › Org1.</span></li>
@@ -1414,13 +1469,14 @@
 <li><span>🔴</span><span><strong>HIGH:</strong> Investigate failure in Week 3 › General.</span></li>
 <li><span>🔴</span><span><strong>HIGH:</strong> Investigate failure in Week 3 › Org1.</span></li>
 <li><span>🟢</span><span><strong>HEALTHY:</strong> Week 3 › Org2 suite is 100% passing.</span></li>
+<li><span>🔴</span><span><strong>HIGH:</strong> Investigate failure in Week 3 › General.</span></li>
   </ul></div>
 </div>
 
 <div class="final-bar">
   <div class="fb-left">
-    <h3>Overall Verdict &mdash; October 16, 2026 at 5:50 AM</h3>
-    <p>170 tests &middot; 3 weeks &middot; 17.1m &middot; 17 failures &middot; 17 flaky</p>
+    <h3>Overall Verdict &mdash; October 16, 2026 at 8:25 AM</h3>
+    <p>176 tests &middot; 3 weeks &middot; 18.6m &middot; 19 failures &middot; 19 flaky</p>
     <div class="fb-cs-row">
       
     <div class="fb-cs-item">
@@ -1536,22 +1592,28 @@
       <div class="fb-cs-score" style="color:#5bf5bc">10.0 / 10</div>
       <div class="fb-cs-detail">10/10 passed</div>
     </div>
+
+    <div class="fb-cs-item">
+      <div class="fb-cs-label">Week 3 &mdash; General</div>
+      <div class="fb-cs-score" style="color:#ff6b6b">6.7 / 10</div>
+      <div class="fb-cs-detail">4/6 passed</div>
+    </div>
     </div>
   </div>
-  <div class="score-ring"><div class="sr-val">90.0%</div><div class="sr-lbl">Pass Rate</div></div>
+  <div class="score-ring"><div class="sr-val">89.2%</div><div class="sr-lbl">Pass Rate</div></div>
 </div>
 
 <script>
-const ORGS = ["Week 1 (10/11/2026) — Org1","Week 1 (10/11/2026) — Org2","Week 1 (10/11/2026) — Org1","Week 1 (10/11/2026) — Org2","Week 1 (10/11/2026) — General","Week 1 (10/12/2026) — Org1","Week 1 (10/12/2026) — Org2","Week 1 (10/12/2026) — General","Week 2 (10/13/2026) — Org1","Week 2 (10/13/2026) — Org2","Week 2 (10/13/2026) — General","Week 2 (10/14/2026) — Org1","Week 2 (10/14/2026) — Org2","Week 2 (10/14/2026) — General","Week 2 (10/15/2026) — Org1","Week 2 (10/15/2026) — Org2","Week 3 (10/15/2026) — General","Week 3 (10/16/2026) — Org1","Week 3 (10/16/2026) — Org2"];
-const PASSED = [9,10,9,10,4,9,10,4,9,10,4,9,10,4,9,10,4,9,10];
-const FAILED = [1,0,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2,1,0];
-const FLAKY = [1,0,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2,1,0];
-const SKIP = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-const RATES = [90,100,90,100,66.7,90,100,66.7,90,100,66.7,90,100,66.7,90,100,66.7,90,100];
+const ORGS = ["Week 1 (10/11/2026) — Org1","Week 1 (10/11/2026) — Org2","Week 1 (10/11/2026) — Org1","Week 1 (10/11/2026) — Org2","Week 1 (10/11/2026) — General","Week 1 (10/12/2026) — Org1","Week 1 (10/12/2026) — Org2","Week 1 (10/12/2026) — General","Week 2 (10/13/2026) — Org1","Week 2 (10/13/2026) — Org2","Week 2 (10/13/2026) — General","Week 2 (10/14/2026) — Org1","Week 2 (10/14/2026) — Org2","Week 2 (10/14/2026) — General","Week 2 (10/15/2026) — Org1","Week 2 (10/15/2026) — Org2","Week 3 (10/15/2026) — General","Week 3 (10/16/2026) — Org1","Week 3 (10/16/2026) — Org2","Week 3 (10/16/2026) — General"];
+const PASSED = [9,10,9,10,4,9,10,4,9,10,4,9,10,4,9,10,4,9,10,4];
+const FAILED = [1,0,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2];
+const FLAKY = [1,0,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2,1,0,2];
+const SKIP = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+const RATES = [90,100,90,100,66.7,90,100,66.7,90,100,66.7,90,100,66.7,90,100,66.7,90,100,66.7];
 
 const WK_L = ["Week 1 (10/11/2026 &ndash; 10/12/2026)","Week 2 (10/13/2026 &ndash; 10/15/2026)","Week 3 (10/15/2026 &ndash; 10/16/2026)"];
-const WK_R = [90.3,90.3,88.5];
-const WK_T = [72,72,26];
+const WK_R = [90.3,90.3,84.4];
+const WK_T = [72,72,32];
 
 const tot = PASSED.reduce((a,b)=>a+b,0)+FAILED.reduce((a,b)=>a+b,0)+FLAKY.reduce((a,b)=>a+b,0)+SKIP.reduce((a,b)=>a+b,0);
 
